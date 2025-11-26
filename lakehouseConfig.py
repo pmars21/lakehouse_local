@@ -1,13 +1,12 @@
 import clickhouse_connect
 import json
+import config as conf
 
-
-config_file = r'C:\Users\pablo\Desktop\Master\GestionAlmacenamientoBigData\PracticaFinal\config.json'
 
 
 def get_client():
     # Leer el fichero de configuracion con los datos de conexion
-    with open(config_file, 'r', encoding='utf-8') as file:
+    with open(conf.config_file, 'r', encoding='utf-8') as file:
         config = json.load(file)
     client = clickhouse_connect.get_client(
     host= config["host"],
@@ -88,9 +87,9 @@ def setup_lakehouse():
     print("-" * 30)
     print("🏛️  Estructura Lakehouse inicializada correctamente.")
 
-if __name__ == "__main__":
-    try:
-        setup_lakehouse()
-    except Exception as e:
-        print(f"❌ Error conectando a ClickHouse: {e}")
-        print("Asegúrate de que ClickHouse server está corriendo (docker o local).")
+#if __name__ == "__main__":
+#    try:
+#        setup_lakehouse()
+#    except Exception as e:
+#        print(f"❌ Error conectando a ClickHouse: {e}")
+#        print("Asegúrate de que ClickHouse server está corriendo (docker o local).")

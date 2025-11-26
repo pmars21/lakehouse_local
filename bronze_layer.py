@@ -14,7 +14,7 @@ import mongo as mng
 
 # Ruta donde está el CSV de logs (ajusta según tu carpeta)
 ruta_data = r'C:\Users\pablo\Desktop\Master\GestionAlmacenamientoBigData\PracticaFinal\data'
-path_logs_csv = os.path.join(ruta_data, 'logs_web.csv')
+path_logs_csv = os.path.join(ruta_data, 'logs_web.csv') #ojo que el nombre del csv sea el mismo
 
 def ingest_bronze():
     ch_client = lakehouseConfig.get_client()
@@ -117,6 +117,6 @@ def ingest_bronze():
     print("-" * 30)
     print("🏁 Ingesta Bronze finalizada.")
 
-if __name__ == "__main__":
-    ingest_bronze()
+#if __name__ == "__main__":
+#    ingest_bronze()
 

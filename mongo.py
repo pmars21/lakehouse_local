@@ -1,23 +1,17 @@
 import json
 from pymongo import MongoClient
 import os
+import config as conf
 
-# Configuración
-db_name = "practica_final_mongodb"
-db_uri = 'mongodb://localhost:27017/'
-
-
-#Aquí se debe poner la ruta donde se encuentran los ficheros en tu sistema
-ruta_data = r'C:\Users\pablo\Desktop\Master\GestionAlmacenamientoBigData\PracticaFinal\data'
 
 def create_mongo_connection():
     """
     Gestiona la conexión inicial y devuelve el cliente y la base de datos.
     """
-    print(f"🔌 Intentando conectar a: {db_uri} ...")
-    client = MongoClient(db_uri)
-    db = client[db_name]
-    print(f"✅ Conexión establecida con la base de datos: {db_name}")
+    print(f"🔌 Intentando conectar a: {conf.db_uri} ...")
+    client = MongoClient(conf.db_uri)
+    db = client[conf.db_name]
+    print(f"✅ Conexión establecida con la base de datos: {conf.db_name}")
     return client, db
 
 def load_data_to_mongo():
@@ -27,7 +21,7 @@ def load_data_to_mongo():
 
         # 2. Cargar users.json -> Colección 'users'
         # El enunciado pide explícitamente ingestarlo en la colección "users" 
-        path_users = os.path.join(ruta_data, 'users.json')
+        path_users = os.path.join(conf.ruta_data, 'users.json')
         if os.path.exists(path_users):
             with open(path_users, 'r', encoding='utf-8') as f:
                 users_data = json.load(f)
@@ -45,7 +39,7 @@ def load_data_to_mongo():
 
         # 3. Cargar ip_reputation.json -> Colección 'ip_reputation'
         # El enunciado pide explícitamente ingestarlo en la colección "ip_reputation" [cite: 11]
-        path_ip_reputation = os.path.join(ruta_data, 'ip_reputation.json')
+        path_ip_reputation = os.path.join(conf.ruta_data, 'ip_reputation.json')
         if os.path.exists(path_ip_reputation):
             with open(path_ip_reputation, 'r', encoding='utf-8') as f:
                 ip_data = json.load(f)
@@ -65,5 +59,5 @@ def load_data_to_mongo():
     finally:
         client.close()
 
-if __name__ == "__main__":
-    load_data_to_mongo()
+#if __name__ == "__main__":
+#    load_data_to_mongo()
