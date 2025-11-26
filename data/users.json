@@ -1,0 +1,122 @@
+[
+  {
+    "_id": "usr_001",
+    "username": "alice",
+    "email": "alice@example.com",
+    "role": "standard",
+    "country": "ES",
+    "created_at": "2025-01-10T09:15:00Z",
+    "is_premium": true,
+    "risk_score": 0.12
+  },
+  {
+    "_id": "usr_002",
+    "username": "bob",
+    "email": "bob@example.com",
+    "role": "standard",
+    "country": "IT",
+    "created_at": "2025-02-05T11:30:00Z",
+    "is_premium": false,
+    "risk_score": 0.20
+  },
+  {
+    "_id": "usr_003",
+    "username": "carla",
+    "email": "carla@example.com",
+    "role": "analyst",
+    "country": "ES",
+    "created_at": "2025-02-20T16:45:00Z",
+    "is_premium": true,
+    "risk_score": 0.45
+  },
+  {
+    "_id": "usr_004",
+    "username": "daniel",
+    "email": "daniel@example.com",
+    "role": "admin",
+    "country": "ES",
+    "created_at": "2025-03-01T08:00:00Z",
+    "is_premium": false,
+    "risk_score": 0.60
+  },
+  {
+    "_id": "usr_005",
+    "username": "eva",
+    "email": "eva@example.com",
+    "role": "standard",
+    "country": "FR",
+    "created_at": "2025-03-10T10:20:00Z",
+    "is_premium": false,
+    "risk_score": 0.35
+  },
+  {
+    "_id": "usr_006",
+    "username": "franco",
+    "email": "franco@example.com",
+    "role": "standard",
+    "country": "PT",
+    "created_at": "2025-04-01T09:00:00Z",
+    "is_premium": true,
+    "risk_score": 0.15
+  },
+  {
+    "_id": "usr_007",
+    "username": "giulia",
+    "email": "giulia@example.com",
+    "role": "standard",
+    "country": "IT",
+    "created_at": "2025-04-15T12:00:00Z",
+    "is_premium": true,
+    "risk_score": 0.25
+  },
+  {
+    "_id": "usr_008",
+    "username": "hugo",
+    "email": "hugo@example.com",
+    "role": "analyst",
+    "country": "ES",
+    "created_at": "2025-04-20T09:30:00Z",
+    "is_premium": false,
+    "risk_score": 0.40
+  },
+  {
+    "_id": "usr_009",
+    "username": "ines",
+    "email": "ines@example.com",
+    "role": "standard",
+    "country": "PT",
+    "created_at": "2025-04-25T17:45:00Z",
+    "is_premium": true,
+    "risk_score": 0.30
+  },
+  {
+    "_id": "usr_010",
+    "username": "jorge",
+    "email": "jorge@example.com",
+    "role": "standard",
+    "country": "ES",
+    "created_at": "2025-05-01T10:10:00Z",
+    "is_premium": false,
+    "risk_score": 0.22
+  },
+  {
+    "_id": "usr_011",
+    "username": "karla",
+    "email": "karla@example.com",
+    "role": "admin",
+    "country": "DE",
+    "created_at": "2025-05-05T08:20:00Z",
+    "is_premium": true,
+    "risk_score": 0.55
+  },
+  {
+    "_id": "usr_012",
+    "username": "leo",
+    "email": "leo@example.com",
+    "role": "standard",
+    "country": "BR",
+    "created_at": "2025-05-10T14:40:00Z",
+    "is_premium": false,
+    "risk_score": 0.28
+  }
+]

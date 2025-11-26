@@ -1,0 +1,98 @@
+[
+  {
+    "_id": "ip_001",
+    "ip": "91.198.174.192",
+    "source": "internal_allow_list",
+    "risk_level": "low",
+    "threat_type": "benign",
+    "last_seen": "2025-05-10T12:30:00Z"
+  },
+  {
+    "_id": "ip_002",
+    "ip": "203.0.113.45",
+    "source": "threat_intel",
+    "risk_level": "high",
+    "threat_type": "brute_force",
+    "last_seen": "2025-06-01T04:12:00Z"
+  },
+  {
+    "_id": "ip_003",
+    "ip": "198.51.100.23",
+    "source": "threat_intel",
+    "risk_level": "medium",
+    "threat_type": "suspicious_login",
+    "last_seen": "2025-05-21T22:05:00Z"
+  },
+  {
+    "_id": "ip_004",
+    "ip": "192.0.2.15",
+    "source": "internal_list",
+    "risk_level": "low",
+    "threat_type": "benign",
+    "last_seen": "2025-05-30T09:47:00Z"
+  },
+  {
+    "_id": "ip_005",
+    "ip": "185.199.110.153",
+    "source": "external_feed",
+    "risk_level": "critical",
+    "threat_type": "credential_stuffing",
+    "last_seen": "2025-06-03T18:20:00Z"
+  },
+  {
+    "_id": "ip_006",
+    "ip": "10.0.0.45",
+    "source": "internal_network",
+    "risk_level": "low",
+    "threat_type": "internal_traffic",
+    "last_seen": "2025-05-29T15:05:00Z"
+  },
+  {
+    "_id": "ip_007",
+    "ip": "203.0.113.99",
+    "source": "threat_intel",
+    "risk_level": "high",
+    "threat_type": "brute_force",
+    "last_seen": "2025-06-02T06:15:00Z"
+  },
+  {
+    "_id": "ip_008",
+    "ip": "198.51.100.77",
+    "source": "external_feed",
+    "risk_level": "medium",
+    "threat_type": "suspicious_login",
+    "last_seen": "2025-06-02T09:30:00Z"
+  },
+  {
+    "_id": "ip_009",
+    "ip": "203.0.113.200",
+    "source": "threat_intel",
+    "risk_level": "critical",
+    "threat_type": "credential_stuffing",
+    "last_seen": "2025-06-03T01:05:00Z"
+  },
+  {
+    "_id": "ip_010",
+    "ip": "185.199.110.200",
+    "source": "external_feed",
+    "risk_level": "high",
+    "threat_type": "brute_force",
+    "last_seen": "2025-06-03T07:45:00Z"
+  },
+  {
+    "_id": "ip_011",
+    "ip": "192.0.2.250",
+    "source": "internal_list",
+    "risk_level": "medium",
+    "threat_type": "suspicious_login",
+    "last_seen": "2025-06-04T10:00:00Z"
+  },
+  {
+    "_id": "ip_012",
+    "ip": "10.0.0.60",
+    "source": "internal_network",
+    "risk_level": "low",
+    "threat_type": "internal_traffic",
+    "last_seen": "2025-06-04T11:20:00Z"
+  }
+]
