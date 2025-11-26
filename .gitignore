@@ -1,0 +1,6 @@
+# Python compilation files
+__pycache__/
+*.pyc
+
+# Ignore PDF
+TFModulo_Practica_Final_BBDD_Enunciado.pdf
