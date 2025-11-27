@@ -382,46 +382,4 @@ Solución: Actualiza la ruta en config.py:
 ruta_data = r'C:\tu\ruta\correcta\data'
 ```
 
-### **Error: Caracteres especiales en CSV**
-```
-Solución: El script usa encoding='utf-8' por defecto
-Si persiste, prueba con encoding='latin-1' en pandas.read_csv()
-```
-
----
-
-## 👥 Contribuciones
-
-Este proyecto es parte de una práctica académica del **Máster en Gestión de Almacenamiento Big Data**.
-
-Para contribuir:
-1. Fork el repositorio
-2. Crea una rama para tu feature (`git checkout -b feature/nueva-funcionalidad`)
-3. Commit tus cambios (`git commit -am 'Añade nueva funcionalidad'`)
-4. Push a la rama (`git push origin feature/nueva-funcionalidad`)
-5. Crea un Pull Request
-
----
-
-## 📄 Licencia
-
-Este proyecto es de uso académico y educativo.
-
----
-
-## 📧 Contacto
-
-Para preguntas o sugerencias sobre el proyecto, contacta al equipo de desarrollo.
-
----
-
-## 🙏 Agradecimientos
-
-- Profesores del Máster en Gestión de Almacenamiento Big Data
-- Comunidad de ClickHouse y MongoDB
-- Documentación oficial de Python, Pandas y PyMongo
-
----
-
-**Última actualización:** Noviembre 2024  
-**Versión:** 1.0.0 (Bronze Layer)
+--
