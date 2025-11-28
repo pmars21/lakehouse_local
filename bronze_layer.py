@@ -1,20 +1,15 @@
-# Imports
-from datetime import date
-from random import randint, choice
-from datetime import datetime
+# bronze_layer.py
+
 import os
-import clickhouse_connect
 import pandas as pd
-import clickhouse_connect
 from pymongo import MongoClient
-import pandas as pd
-import os
 import lakehouseConfig as lakehouseConfig
 import mongo as mng
 
-# Ruta donde está el CSV de logs (ajusta según tu carpeta)
-ruta_data = r'C:\Users\pablo\Desktop\Master\GestionAlmacenamientoBigData\PracticaFinal\data'
-path_logs_csv = os.path.join(ruta_data, 'logs_web.csv') #ojo que el nombre del csv sea el mismo
+# Ruta portable al CSV (no absoluta)
+ruta_data = os.path.join(os.getcwd(), "data")
+path_logs_csv = os.path.join(ruta_data, 'logs_web.csv')
+
 
 def ingest_bronze():
     ch_client = lakehouseConfig.get_client()
@@ -23,100 +18,90 @@ def ingest_bronze():
     print("🚀 Iniciando ingesta a Capa BRONZE...")
 
     # ---------------------------------------------------------
-    # 1. INGESTA LOGS (CSV) -> ClickHouse (bronze.logs_web)
-    #  "logs_web.csv" -> Ingestar como fichero CSV.
+    # 1. INGESTA LOGS_WEB (CSV → ClickHouse)
     # ---------------------------------------------------------
     try:
         if os.path.exists(path_logs_csv):
             print(f"   Leyendo CSV: {path_logs_csv}...")
-            # Leemos todo como string (dtype=str) para cumplir con la tabla Bronze definida
-            df_logs = pd.read_csv(path_logs_csv, dtype=str)
-            
-            # Reemplazar NaN por cadenas vacías para evitar errores en CH
-            df_logs = df_logs.fillna('')
-            
-            # Insertar en ClickHouse
+
+            df_logs = pd.read_csv(path_logs_csv, dtype=str).fillna('')
+
             ch_client.insert_df('bronze.logs_web', df_logs)
-            print(f"✅ [logs_web] Ingestados {len(df_logs)} registros en Bronze.")
+            print(f"✅ [logs_web] {len(df_logs)} registros insertados en Bronze.")
+
         else:
             print(f"❌ No se encuentra el fichero CSV: {path_logs_csv}")
+
     except Exception as e:
-        print(f"❌ Error ingestando Logs: {e}")
+        print(f"❌ Error en logs_web: {e}")
 
     # ---------------------------------------------------------
-    # 2. INGESTA USERS (Mongo) -> ClickHouse (bronze.users)
-    #  "users.json" -> Desde colección "users" de MongoDB.
+    # 2. INGESTA USERS (Mongo → ClickHouse)
     # ---------------------------------------------------------
     try:
-        # Recuperamos documentos de Mongo excluyendo el _id interno de mongo si no coincide,
-        # pero el enunciado dice que el _id del json es la clave[cite: 86]. 
-        # Mongo importa el campo "_id" del json como su id principal.
-        cursor_users = mongo_db.users.find({})
-        users_list = list(cursor_users)
-        
+        users_list = list(mongo_db.users.find({}))
+
         if users_list:
-            # Preparamos los datos para ClickHouse
-            # Convertimos todo a string para asegurar compatibilidad con Bronze
-            data_to_insert = []
+            rows = []
             for doc in users_list:
-                row = [
+                rows.append([
                     str(doc.get('_id', '')),
                     str(doc.get('username', '')),
                     str(doc.get('email', '')),
                     str(doc.get('role', '')),
                     str(doc.get('country', '')),
                     str(doc.get('created_at', '')),
-                    str(doc.get('is_premium', '')), # Convertimos bool a string 'True'/'False'
+                    str(doc.get('is_premium', '')),
                     str(doc.get('risk_score', ''))
-                ]
-                data_to_insert.append(row)
-            
-            column_names = ['_id', 'username', 'email', 'role', 'country', 'created_at', 'is_premium', 'risk_score']
-            
-            ch_client.insert('bronze.users', data_to_insert, column_names=column_names)
-            print(f"✅ [users] Ingestados {len(data_to_insert)} usuarios desde Mongo.")
+                ])
+
+            column_names = [
+                '_id', 'username', 'email', 'role',
+                'country', 'created_at', 'is_premium', 'risk_score'
+            ]
+
+            ch_client.insert('bronze.users', rows, column_names=column_names)
+            print(f"✅ [users] {len(rows)} usuarios insertados en Bronze.")
+
         else:
-            print("⚠️ La colección 'users' en Mongo está vacía.")
-            
+            print("⚠️ La colección 'users' está vacía.")
+
     except Exception as e:
-        print(f"❌ Error ingestando Users: {e}")
+        print(f"❌ Error en users: {e}")
 
     # ---------------------------------------------------------
-    # 3. INGESTA IP_REPUTATION (Mongo) -> ClickHouse (bronze.ip_reputation)
-    # "ip_reputation.json" -> Desde colección "ip_reputation".
+    # 3. INGESTA IP_REPUTATION (Mongo → ClickHouse)
     # ---------------------------------------------------------
     try:
-        cursor_ips = mongo_db.ip_reputation.find({})
-        ips_list = list(cursor_ips)
-        
-        if ips_list:
-            data_to_insert = []
-            for doc in ips_list:
-                row = [
+        ip_list = list(mongo_db.ip_reputation.find({}))
+
+        if ip_list:
+            rows = []
+            for doc in ip_list:
+                rows.append([
+                    str(doc.get('_id', '')),
                     str(doc.get('ip', '')),
                     str(doc.get('source', '')),
                     str(doc.get('risk_level', '')),
                     str(doc.get('threat_type', '')),
                     str(doc.get('last_seen', ''))
-                ]
-                data_to_insert.append(row)
+                ])
 
-            column_names = ['ip', 'source', 'risk_level', 'threat_type', 'last_seen']
-            
-            ch_client.insert('bronze.ip_reputation', data_to_insert, column_names=column_names)
-            print(f"✅ [ip_reputation] Ingestadas {len(data_to_insert)} IPs desde Mongo.")
+            column_names = [
+                '_id', 'ip', 'source', 'risk_level',
+                'threat_type', 'last_seen'
+            ]
+
+            ch_client.insert('bronze.ip_reputation', rows, column_names=column_names)
+            print(f"✅ [ip_reputation] {len(rows)} IPs insertadas.")
+
         else:
-            print("⚠️ La colección 'ip_reputation' en Mongo está vacía.")
+            print("⚠️ La colección 'ip_reputation' está vacía.")
 
     except Exception as e:
-        print(f"❌ Error ingestando IP Reputation: {e}")
+        print(f"❌ Error en ip_reputation: {e}")
 
     # Cerrar conexiones
     mongo_client.close()
-    # clickhouse_connect gestiona sus conexiones internamente, pero es bueno acabar limpio.
-    print("-" * 30)
+    print("--------------------------------------")
     print("🏁 Ingesta Bronze finalizada.")
-
-#if __name__ == "__main__":
-#    ingest_bronze()
-

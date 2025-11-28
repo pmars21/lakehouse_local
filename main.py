@@ -1,84 +1,75 @@
-# Imports
-from datetime import date
-import random
-from random import randint, choice
-import time
-import faker
-from datetime import datetime
-import os
-import clickhouse_connect
-import json
-import pandas as pd
-import sys
+# main.py
 
+import sys
 import mongo as mng
 import lakehouseConfig as lakehouseConfig
 import bronze_layer as bl
+import silver_layer as sl
+import gold_layer as gl
+
 
 def main():
-    print("="*50)
+    print("=" * 60)
     print("🚀 INICIANDO ORQUESTADOR DEL LAKEHOUSE")
-    print("="*50)
+    print("=" * 60)
 
     # ------------------------------------------------------
-    # PASO 1: Carga de Datos Operacionales (MongoDB)
+    # PASO 1: CARGA DE DATOS EN MONGODB
     # ------------------------------------------------------
     print("\n📦 [PASO 1/5] Cargando datos en MongoDB...")
     try:
-        mng.load_data_to_mongo() # Llamamos a la función principal del script 1
+        mng.load_data_to_mongo()
     except Exception as e:
-        print(f"❌ Falló el Paso 1: {e}")
-        sys.exit(1) # Detenemos todo si falla la fuente
-     #------------------------------------------------------
-     #PASO 2: Inicialización de Estructura (ClickHouse DDL)
-     #------------------------------------------------------
-    print("\n🏗️  [PASO 2/5] Creando estructura del Lakehouse...")
-    try:
-        lakehouseConfig.setup_lakehouse() # Llamamos a la función del script 2
-    except Exception as e:
-        print(f"❌ Falló el Paso 2: {e}")
+        print(f"❌ Falló el Paso 1 (MongoDB): {e}")
         sys.exit(1)
 
     # ------------------------------------------------------
-    # PASO 3: Ingesta Capa Bronze (Raw Data)
+    # PASO 2: CREACIÓN DE ESTRUCTURA DEL LAKEHOUSE (ClickHouse)
     # ------------------------------------------------------
-    print("\n [PASO 3/5] Ingestando Capa BRONZE...")
+    print("\n🏗️  [PASO 2/5] Inicializando estructura en ClickHouse...")
     try:
-        bl.ingest_bronze() # Llamamos a la función del script 3
+        lakehouseConfig.setup_lakehouse()
     except Exception as e:
-        print(f"❌ Falló el Paso 3: {e}")
+        print(f"❌ Falló el Paso 2 (Estructura CH): {e}")
         sys.exit(1)
 
     # ------------------------------------------------------
-    # PASO 4: Procesamiento Capa Silver (Clean & Join)
+    # PASO 3: INGESTA BRONZE
     # ------------------------------------------------------
-    # print("\n🥈 [PASO 4/5] Procesando Capa SILVER...")
-    # print("   🚧 (Pendiente de implementar: script step4_silver_process.py)")
-    # try:
-    #     s4.process_silver()
-    # except Exception as e:
-    #     print(f"❌ Falló el Paso 4: {e}")
-    #     sys.exit(1)
+    print("\n🥉 [PASO 3/5] Ingestando datos en Capa BRONZE...")
+    try:
+        bl.ingest_bronze()
+    except Exception as e:
+        print(f"❌ Falló el Paso 3 (Bronze): {e}")
+        sys.exit(1)
 
     # ------------------------------------------------------
-    # PASO 5: Agregación Capa Gold (Business KPIs)
+    # PASO 4: PROCESAMIENTO SILVER (si existe)
     # ------------------------------------------------------
-    # print("\n🥇 [PASO 5/5] Calculando KPIs Capa GOLD...")
-    # print("   🚧 (Pendiente de implementar: script step5_gold_kpis.py)")
-    # try:
-    #     s5.calculate_gold()
-    # except Exception as e:
-    #     print(f"❌ Falló el Paso 5: {e}")
-    #     sys.exit(1)
+    print("\n🥈 [PASO 4/5] Procesando Capa SILVER...")
+    try:
+        sl.process_silver()
+    except Exception as e:
+        print(f"❌ Falló el Paso 4 (Silver): {e}")
+        sys.exit(1)
+
+    # ------------------------------------------------------
+    # PASO 5: KPIs GOLD (si existe)
+    # ------------------------------------------------------
+    print("\n🥇 [PASO 5/5] Calculando métricas GOLD...")
+    try:
+        gl.calculate_gold()
+    except Exception as e:
+        print(f"❌ Falló el Paso 5 (Gold): {e}")
+        sys.exit(1)
 
     # ------------------------------------------------------
     # FIN
     # ------------------------------------------------------
+    print("\n" + "=" * 60)
+    print("🏁 EJECUCIÓN COMPLETADA CON ÉXITO")
+    print("=" * 60)
 
-    
-    print("\n" + "="*50)
-    print(f"🏁 EJECUCIÓN COMPLETADA CON ÉXITO")
-    print("="*50)
 
 if __name__ == "__main__":
     main()

@@ -6,58 +6,72 @@ import config as conf
 
 def create_mongo_connection():
     """
-    Gestiona la conexión inicial y devuelve el cliente y la base de datos.
+    Crea la conexión a MongoDB y devuelve el cliente y la base de datos.
     """
-    print(f"🔌 Intentando conectar a: {conf.db_uri} ...")
+    print(f"🔌 Intentando conectar a MongoDB en: {conf.db_uri} ...")
     client = MongoClient(conf.db_uri)
     db = client[conf.db_name]
-    print(f"✅ Conexión establecida con la base de datos: {conf.db_name}")
+    print(f"✅ Conectado a la base de datos: {conf.db_name}")
     return client, db
 
+
+def _load_json_file(path):
+    """
+    Carga un JSON desde disco y valida que sea una lista.
+    """
+    if not os.path.exists(path):
+        print(f"❌ No se encuentra el fichero: {path}")
+        return None
+
+    with open(path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    if not isinstance(data, list):
+        print(f"⚠️ El JSON de {path} no contiene una lista. Formato no válido.")
+        return None
+
+    if len(data) == 0:
+        print(f"⚠️ El JSON de {path} está vacío.")
+        return None
+
+    return data
+
+
 def load_data_to_mongo():
+    """
+    Carga users.json e ip_reputation.json en sus colecciones correspondientes.
+    El proceso es idempotente: limpia las colecciones antes de insertar.
+    """
     try:
-        # 1. Conexión a MongoDB
         client, db = create_mongo_connection()
 
-        # 2. Cargar users.json -> Colección 'users'
-        # El enunciado pide explícitamente ingestarlo en la colección "users" 
+        # Rutas a los ficheros
         path_users = os.path.join(conf.ruta_data, 'users.json')
-        if os.path.exists(path_users):
-            with open(path_users, 'r', encoding='utf-8') as f:
-                users_data = json.load(f)
-                
-            # Limpiar colección por si re-ejecutas el script (idempotencia)
-            db.users.drop() 
-            
-            if isinstance(users_data, list) and len(users_data) > 0:
-                db.users.insert_many(users_data)
-                print(f"✅ Insertados {len(users_data)} documentos en colección 'users'.")
-            else:
-                print("⚠️ El fichero users.json está vacío o no es una lista.")
-        else:
-            print("❌ No se encuentra el fichero users.json")
+        path_ips = os.path.join(conf.ruta_data, 'ip_reputation.json')
 
-        # 3. Cargar ip_reputation.json -> Colección 'ip_reputation'
-        # El enunciado pide explícitamente ingestarlo en la colección "ip_reputation" [cite: 11]
-        path_ip_reputation = os.path.join(conf.ruta_data, 'ip_reputation.json')
-        if os.path.exists(path_ip_reputation):
-            with open(path_ip_reputation, 'r', encoding='utf-8') as f:
-                ip_data = json.load(f)
-                
-            db.ip_reputation.drop() # Limpiar anterior
-            
-            if isinstance(ip_data, list) and len(ip_data) > 0:
-                db.ip_reputation.insert_many(ip_data)
-                print(f"✅ Insertados {len(ip_data)} documentos en colección 'ip_reputation'.")
-            else:
-                print("⚠️ El fichero ip_reputation.json está vacío o no es una lista.")
-        else:
-            print("❌ No se encuentra el fichero ip_reputation.json")
+        # ---------------------------------------------------------
+        # Insertar USERS
+        # ---------------------------------------------------------
+        users_data = _load_json_file(path_users)
+        if users_data:
+            db.users.drop()
+            db.users.insert_many(users_data)
+            print(f"✅ Insertados {len(users_data)} documentos en 'users'.")
+
+        # ---------------------------------------------------------
+        # Insertar IP_REPUTATION
+        # ---------------------------------------------------------
+        ip_data = _load_json_file(path_ips)
+        if ip_data:
+            db.ip_reputation.drop()
+            db.ip_reputation.insert_many(ip_data)
+            print(f"✅ Insertados {len(ip_data)} documentos en 'ip_reputation'.")
 
     except Exception as e:
         print(f"❌ Error durante la carga a Mongo: {e}")
-    finally:
-        client.close()
 
-#if __name__ == "__main__":
-#    load_data_to_mongo()
+    finally:
+        try:
+            client.close()
+        except:
+            pass
