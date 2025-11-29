@@ -1,746 +1,645 @@
 """
-================================================================================
-CAPA GOLD - MÉTRICAS Y AGREGACIONES DE NEGOCIO
-================================================================================
-Este script implementa la capa Gold del Lakehouse:
-- Lee datos de la capa Silver
-- Calcula métricas agregadas
-- Genera KPIs de negocio
-- Crea tablas optimizadas para consumo analítico
+CAPA GOLD - VISTAS MATERIALIZADAS PARA KPIs Y ANALYTICS
+========================================================
 
-La capa Gold contiene datos listos para dashboards, reportes y análisis,
-con agregaciones pre-calculadas para rendimiento óptimo.
+Este módulo crea vistas materializadas en ClickHouse para la capa Gold del Lakehouse.
+Las vistas materializadas se actualizan automáticamente cuando llegan nuevos datos a Silver.
 
-Tablas Gold creadas:
-1. gold_daily_traffic_metrics - Métricas diarias de tráfico
-2. gold_user_activity_metrics - Métricas por usuario
-3. gold_ip_threat_analysis - Análisis de amenazas por IP
-4. gold_security_summary - Resumen de seguridad
-5. gold_hourly_patterns - Patrones por hora/día
-
-Autor: [Tu nombre]
-Fecha: 2025
-================================================================================
+Categorías de KPIs:
+1. Seguridad - Amenazas, IPs sospechosas, eventos anómalos
+2. Rendimiento - Latencias, disponibilidad, throughput
+3. Usuarios - Comportamiento por segmento, geografía, roles
+4. Business Intelligence - Métricas ejecutivas consolidadas
 """
 
-import json
 import clickhouse_connect
+import time
 import lakehouseConfig as conf
 
 
-# Conectar
-client = conf.get_client()
-    
-    
-     # --- CORRECCIÓN 1: CREAR LA BASE DE DATOS ---
-print("🛠️ Asegurando que existe la base de datos 'lakehouse'...")
-client.command("CREATE DATABASE IF NOT EXISTS lakehouse")
-        # ---------------------------------------------
-
-        # Crear tablas Gold
-print("\n" + "-"*60)
-print("📋 CREANDO TABLAS GOLD")
-    # ... (resto del código igual)
-
-# =============================================================================
-# CREACIÓN DE TABLAS GOLD
-# =============================================================================
-
-def create_gold_daily_traffic_table(client):
+def create_gold_views():
     """
-    Crea tabla de métricas diarias de tráfico.
-    
-    Métricas incluidas:
-    - Total de requests
-    - Usuarios únicos
-    - IPs únicas
-    - Bytes totales
-    - Tiempos de respuesta (promedio y percentil 95)
-    - Tasa de errores
-    - Tasa de eventos sospechosos
+    Crea todas las vistas materializadas en la capa Gold.
+    Las vistas materializadas ofrecen:
+    - Consultas ultra-rápidas (datos pre-agregados)
+    - Actualización automática cuando cambia Silver
+    - Menor costo computacional en análisis repetitivos
     """
-    print("\n📋 Creando tabla gold_daily_traffic_metrics...")
+    client = conf.get_client()
+    print("🥇 Iniciando creación de Capa GOLD...")
+    start_time = time.time()
+
+    # =========================================================================
+    # CATEGORÍA 1: SEGURIDAD Y DETECCIÓN DE AMENAZAS
+    # =========================================================================
     
-    client.command("DROP TABLE IF EXISTS lakehouse.gold_daily_traffic_metrics")
+    print("\n🔒 [1/4] Creando vistas de SEGURIDAD...")
     
+    # 1.1 - Dashboard de Seguridad Diario
+    # Agrega eventos sospechosos, IPs de riesgo y amenazas por día
     client.command("""
-        CREATE TABLE lakehouse.gold_daily_traffic_metrics (
-            event_date Date COMMENT 'Fecha',
-            
-            -- Volumen
-            total_requests UInt64 COMMENT 'Total de peticiones',
-            unique_users UInt64 COMMENT 'Usuarios únicos',
-            unique_ips UInt64 COMMENT 'IPs únicas',
-            total_bytes_sent UInt64 COMMENT 'Bytes totales enviados',
-            
-            -- Rendimiento
-            avg_response_time_ms Float64 COMMENT 'Tiempo respuesta promedio',
-            p95_response_time_ms Float64 COMMENT 'Percentil 95 tiempo respuesta',
-            max_response_time_ms UInt32 COMMENT 'Tiempo respuesta máximo',
-            
-            -- Errores
-            error_count UInt64 COMMENT 'Total de errores (4xx + 5xx)',
-            client_error_count UInt64 COMMENT 'Errores cliente (4xx)',
-            server_error_count UInt64 COMMENT 'Errores servidor (5xx)',
-            error_rate Float64 COMMENT 'Tasa de errores',
-            
-            -- Seguridad
-            suspicious_count UInt64 COMMENT 'Eventos sospechosos',
-            suspicious_rate Float64 COMMENT 'Tasa de sospechosos',
-            bot_requests UInt64 COMMENT 'Peticiones de bots',
-            
-            -- Metadatos
-            _calculated_at DateTime DEFAULT now()
-        )
-        ENGINE = MergeTree()
-        ORDER BY (event_date)
-        COMMENT 'Capa Gold: Métricas diarias de tráfico web'
+    CREATE MATERIALIZED VIEW IF NOT EXISTS gold.security_daily_summary
+    ENGINE = SummingMergeTree()
+    ORDER BY (event_date, ip_risk_level)
+    POPULATE
+    AS SELECT
+        toDate(event_ts) AS event_date,
+        ip_risk_level,
+        ip_threat_type,
+        
+        -- Contadores de seguridad
+        count() AS total_events,
+        countIf(is_suspicious = 1) AS suspicious_events,
+        countIf(status_code >= 400) AS error_events,
+        countIf(status_code = 401 OR status_code = 403) AS auth_failures,
+        
+        -- IPs únicas por nivel de riesgo
+        uniq(ip_address) AS unique_ips,
+        
+        -- Estadísticas de usuarios afectados
+        uniq(user_id) AS unique_users_affected,
+        countIf(user_is_premium = 1) AS premium_users_affected
+        
+    FROM silver.enriched_events
+    GROUP BY event_date, ip_risk_level, ip_threat_type
     """)
-    print("   ✅ Tabla creada")
+    print("   ✅ security_daily_summary - Dashboard diario de seguridad")
 
-
-def create_gold_user_activity_table(client):
-    """
-    Crea tabla de métricas de actividad por usuario.
-    
-    Métricas incluidas:
-    - Actividad total y temporal
-    - Intentos de login y fallos
-    - Consumo de recursos
-    - Score de riesgo combinado
-    """
-    print("\n📋 Creando tabla gold_user_activity_metrics...")
-    
-    client.command("DROP TABLE IF EXISTS lakehouse.gold_user_activity_metrics")
-    
+    # 1.2 - Top IPs Maliciosas
+    # Ranking de IPs más activas con comportamiento sospechoso
     client.command("""
-        CREATE TABLE lakehouse.gold_user_activity_metrics (
-            -- Identificación
-            user_id String COMMENT 'ID del usuario',
-            username String COMMENT 'Nombre de usuario',
-            user_role String COMMENT 'Rol',
-            user_country String COMMENT 'País',
-            is_premium UInt8 COMMENT 'Usuario premium',
-            
-            -- Actividad
-            total_requests UInt64 COMMENT 'Total peticiones',
-            first_activity DateTime COMMENT 'Primera actividad',
-            last_activity DateTime COMMENT 'Última actividad',
-            distinct_days_active UInt32 COMMENT 'Días distintos con actividad',
-            
-            -- Autenticación
-            login_attempts UInt64 COMMENT 'Intentos de login',
-            failed_logins UInt64 COMMENT 'Logins fallidos',
-            login_success_rate Float64 COMMENT 'Tasa de éxito en login',
-            
-            -- Consumo
-            avg_response_time_ms Float64 COMMENT 'Tiempo respuesta promedio',
-            total_bytes_consumed UInt64 COMMENT 'Bytes totales consumidos',
-            
-            -- Comportamiento
-            distinct_ips_used UInt32 COMMENT 'IPs distintas usadas',
-            distinct_urls_accessed UInt32 COMMENT 'URLs distintas accedidas',
-            admin_access_count UInt64 COMMENT 'Accesos a admin',
-            
-            -- Riesgo
-            error_count UInt64 COMMENT 'Errores generados',
-            suspicious_events UInt64 COMMENT 'Eventos sospechosos',
-            original_risk_score Float64 COMMENT 'Score de riesgo original',
-            combined_risk_score Float64 COMMENT 'Score de riesgo calculado',
-            
-            -- Metadatos
-            _calculated_at DateTime DEFAULT now()
-        )
-        ENGINE = MergeTree()
-        ORDER BY (combined_risk_score DESC, user_id)
-        COMMENT 'Capa Gold: Métricas de actividad por usuario'
+    CREATE MATERIALIZED VIEW IF NOT EXISTS gold.top_malicious_ips
+    ENGINE = AggregatingMergeTree()
+    ORDER BY (ip_address, event_hour)
+    POPULATE
+    AS SELECT
+        ip_address,
+        toStartOfHour(event_ts) AS event_hour,
+        ip_risk_level,
+        ip_threat_type,
+        ip_source,
+        
+        -- Métricas de actividad
+        count() AS request_count,
+        countIf(is_suspicious = 1) AS suspicious_count,
+        countIf(status_code = 404) AS not_found_attempts,  -- Posible escaneo
+        countIf(status_code >= 500) AS server_errors_caused,
+        
+        -- Diversidad de targets (posible ataque distribuido)
+        uniq(url_path) AS unique_urls_accessed,
+        uniq(user_id) AS unique_users_targeted,
+        
+        -- Promedio de tiempo de respuesta (puede indicar ataques DoS)
+        avg(response_time_ms) AS avg_response_time
+        
+    FROM silver.enriched_events
+    WHERE ip_risk_level IN ('high', 'critical', 'medium')
+       OR is_suspicious = 1
+    GROUP BY ip_address, event_hour, ip_risk_level, ip_threat_type, ip_source
     """)
-    print("   ✅ Tabla creada")
+    print("   ✅ top_malicious_ips - Ranking de IPs peligrosas por hora")
 
-
-def create_gold_ip_threat_table(client):
-    """
-    Crea tabla de análisis de amenazas por IP.
-    
-    Métricas incluidas:
-    - Información de reputación
-    - Actividad detectada
-    - Usuarios afectados
-    - Score de amenaza calculado
-    """
-    print("\n📋 Creando tabla gold_ip_threat_analysis...")
-    
-    client.command("DROP TABLE IF EXISTS lakehouse.gold_ip_threat_analysis")
-    
+    # 1.3 - Alertas de Usuarios Comprometidos
+    # Detecta usuarios con alto riesgo o comportamiento anómalo
     client.command("""
-        CREATE TABLE lakehouse.gold_ip_threat_analysis (
-            -- Identificación
-            ip_address String COMMENT 'Dirección IP',
-            ip_risk_level String COMMENT 'Nivel de riesgo de la IP',
-            ip_threat_type String COMMENT 'Tipo de amenaza',
-            ip_source String COMMENT 'Fuente de inteligencia',
-            
-            -- Actividad
-            total_requests UInt64 COMMENT 'Total peticiones desde esta IP',
-            first_seen DateTime COMMENT 'Primera vez vista',
-            last_seen DateTime COMMENT 'Última vez vista',
-            days_active UInt32 COMMENT 'Días con actividad',
-            
-            -- Impacto
-            distinct_users_affected UInt32 COMMENT 'Usuarios distintos afectados',
-            distinct_urls_accessed UInt32 COMMENT 'URLs distintas accedidas',
-            
-            -- Comportamiento sospechoso
-            login_attempts UInt64 COMMENT 'Intentos de login',
-            failed_logins UInt64 COMMENT 'Logins fallidos',
-            admin_access_attempts UInt64 COMMENT 'Intentos de acceso admin',
-            suspicious_events UInt64 COMMENT 'Eventos marcados sospechosos',
-            error_events UInt64 COMMENT 'Eventos con error',
-            
-            -- Puntuación de amenaza
-            threat_score Float64 COMMENT 'Score de amenaza (0-5)',
-            
-            -- Metadatos
-            _calculated_at DateTime DEFAULT now()
-        )
-        ENGINE = MergeTree()
-        ORDER BY (threat_score DESC, ip_address)
-        COMMENT 'Capa Gold: Análisis de amenazas por IP'
+    CREATE MATERIALIZED VIEW IF NOT EXISTS gold.user_security_alerts
+    ENGINE = ReplacingMergeTree()
+    ORDER BY (user_id, alert_date)
+    POPULATE
+    AS SELECT
+        user_id,
+        user_name,
+        user_email,
+        user_country,
+        toDate(event_ts) AS alert_date,
+        
+        -- Indicadores de compromiso
+        countIf(ip_risk_level IN ('high', 'critical')) AS high_risk_ip_usage,
+        countIf(is_suspicious = 1) AS suspicious_activities,
+        countIf(status_code = 401) AS failed_auth_attempts,
+        
+        -- Diversidad geográfica sospechosa (múltiples IPs distintas)
+        uniq(ip_address) AS distinct_ips_used,
+        
+        -- Actividad fuera de horario normal (simplificado)
+        countIf(toHour(event_ts) < 6 OR toHour(event_ts) > 22) AS off_hours_activity,
+        
+        -- Score de riesgo calculado
+        greatest(
+            countIf(is_suspicious = 1) * 10 +
+            countIf(ip_risk_level = 'critical') * 20 +
+            countIf(ip_risk_level = 'high') * 10 +
+            uniq(ip_address) * 2
+        , 0) AS calculated_risk_score
+        
+    FROM silver.enriched_events
+    WHERE user_id != ''
+    GROUP BY user_id, user_name, user_email, user_country, alert_date
+    HAVING calculated_risk_score > 50  -- Solo alertas significativas
     """)
-    print("   ✅ Tabla creada")
+    print("   ✅ user_security_alerts - Detección de usuarios comprometidos")
 
-
-def create_gold_security_summary_table(client):
-    """
-    Crea tabla de resumen de seguridad diario.
+    # =========================================================================
+    # CATEGORÍA 2: RENDIMIENTO Y DISPONIBILIDAD
+    # =========================================================================
     
-    Métricas incluidas:
-    - Total de eventos y eventos de riesgo
-    - Tipos de amenazas detectadas
-    - Usuarios y cuentas afectadas
-    - Score promedio de amenaza
-    """
-    print("\n📋 Creando tabla gold_security_summary...")
+    print("\n⚡ [2/4] Creando vistas de RENDIMIENTO...")
     
-    client.command("DROP TABLE IF EXISTS lakehouse.gold_security_summary")
-    
+    # 2.1 - SLA y Disponibilidad por Endpoint
+    # Métricas de latencia y disponibilidad para cada URL
     client.command("""
-        CREATE TABLE lakehouse.gold_security_summary (
-            summary_date Date COMMENT 'Fecha del resumen',
-            
-            -- Volumen
-            total_events UInt64 COMMENT 'Total de eventos',
-            high_risk_events UInt64 COMMENT 'Eventos de alto riesgo',
-            
-            -- IPs
-            total_unique_ips UInt32 COMMENT 'IPs únicas totales',
-            critical_ips_active UInt32 COMMENT 'IPs críticas activas',
-            high_risk_ips_active UInt32 COMMENT 'IPs de alto riesgo activas',
-            
-            -- Tipos de amenaza
-            brute_force_attempts UInt64 COMMENT 'Intentos brute force',
-            credential_stuffing_attempts UInt64 COMMENT 'Intentos credential stuffing',
-            suspicious_logins UInt64 COMMENT 'Logins sospechosos',
-            
-            -- Usuarios afectados
-            total_users_active UInt32 COMMENT 'Usuarios activos totales',
-            premium_users_affected UInt32 COMMENT 'Usuarios premium afectados',
-            admin_accounts_targeted UInt32 COMMENT 'Cuentas admin objetivo',
-            
-            -- Métricas agregadas
-            avg_threat_score Float64 COMMENT 'Score de amenaza promedio',
-            max_threat_score Float64 COMMENT 'Score de amenaza máximo',
-            top_threat_type String COMMENT 'Tipo de amenaza principal',
-            
-            -- Metadatos
-            _calculated_at DateTime DEFAULT now()
-        )
-        ENGINE = MergeTree()
-        ORDER BY (summary_date)
-        COMMENT 'Capa Gold: Resumen de seguridad diario'
+    CREATE MATERIALIZED VIEW IF NOT EXISTS gold.endpoint_performance
+    ENGINE = AggregatingMergeTree()
+    ORDER BY (url_path, performance_hour)
+    POPULATE
+    AS SELECT
+        url_path,
+        http_method,
+        toStartOfHour(event_ts) AS performance_hour,
+        
+        -- Volumen de tráfico
+        count() AS total_requests,
+        
+        -- Códigos de estado (SLA)
+        countIf(status_code >= 200 AND status_code < 300) AS success_count,
+        countIf(status_code >= 400 AND status_code < 500) AS client_errors,
+        countIf(status_code >= 500) AS server_errors,
+        
+        -- Disponibilidad (%)
+        (countIf(status_code < 500) * 100.0) / count() AS availability_pct,
+        
+        -- Latencia (percentiles críticos para SLA)
+        quantile(0.50)(response_time_ms) AS p50_latency_ms,
+        quantile(0.95)(response_time_ms) AS p95_latency_ms,
+        quantile(0.99)(response_time_ms) AS p99_latency_ms,
+        avg(response_time_ms) AS avg_latency_ms,
+        max(response_time_ms) AS max_latency_ms,
+        
+        -- Throughput
+        sum(bytes_sent) AS total_bytes_sent,
+        avg(bytes_sent) AS avg_bytes_per_request
+        
+    FROM silver.enriched_events
+    GROUP BY url_path, http_method, performance_hour
     """)
-    print("   ✅ Tabla creada")
+    print("   ✅ endpoint_performance - SLA y latencias por endpoint")
 
-
-def create_gold_hourly_patterns_table(client):
-    """
-    Crea tabla de patrones por hora y día de la semana.
-    
-    Útil para:
-    - Identificar patrones de uso normal
-    - Detectar anomalías temporales
-    - Planificación de capacidad
-    """
-    print("\n📋 Creando tabla gold_hourly_patterns...")
-    
-    client.command("DROP TABLE IF EXISTS lakehouse.gold_hourly_patterns")
-    
+    # 2.2 - Health Check Global por Hora
+    # Vista consolidada del estado general del sistema
     client.command("""
-        CREATE TABLE lakehouse.gold_hourly_patterns (
-            event_hour UInt8 COMMENT 'Hora del día (0-23)',
-            day_of_week UInt8 COMMENT 'Día de la semana (1=Lun, 7=Dom)',
-            
-            -- Volumen
-            total_requests UInt64 COMMENT 'Total de peticiones',
-            unique_users UInt32 COMMENT 'Usuarios únicos',
-            unique_ips UInt32 COMMENT 'IPs únicas',
-            
-            -- Rendimiento
-            avg_response_time_ms Float64 COMMENT 'Tiempo respuesta promedio',
-            
-            -- Tasas
-            error_rate Float64 COMMENT 'Tasa de errores',
-            suspicious_rate Float64 COMMENT 'Tasa de sospechosos',
-            bot_rate Float64 COMMENT 'Tasa de bots',
-            
-            -- Categorías más comunes
-            top_url_category String COMMENT 'Categoría URL más común',
-            
-            -- Metadatos
-            _calculated_at DateTime DEFAULT now()
-        )
-        ENGINE = MergeTree()
-        ORDER BY (day_of_week, event_hour)
-        COMMENT 'Capa Gold: Patrones de tráfico por hora y día'
+    CREATE MATERIALIZED VIEW IF NOT EXISTS gold.system_health_hourly
+    ENGINE = SummingMergeTree()
+    ORDER BY health_hour
+    POPULATE
+    AS SELECT
+        toStartOfHour(event_ts) AS health_hour,
+        
+        -- Volumen total
+        count() AS total_requests,
+        uniq(user_id) AS active_users,
+        uniq(ip_address) AS unique_ips,
+        
+        -- Salud HTTP
+        countIf(status_code = 200) AS http_200_ok,
+        countIf(status_code >= 400 AND status_code < 500) AS http_4xx,
+        countIf(status_code >= 500) AS http_5xx,
+        
+        -- Tasa de error global
+        (countIf(status_code >= 500) * 100.0) / count() AS error_rate_pct,
+        
+        -- Performance global
+        avg(response_time_ms) AS avg_response_time,
+        quantile(0.95)(response_time_ms) AS p95_response_time,
+        
+        -- Ancho de banda
+        sum(bytes_sent) / 1024 / 1024 AS total_mb_sent,  -- Convertido a MB
+        
+        -- Seguridad
+        countIf(is_suspicious = 1) AS suspicious_events,
+        countIf(ip_risk_level IN ('high', 'critical')) AS high_risk_events
+        
+    FROM silver.enriched_events
+    GROUP BY health_hour
     """)
-    print("   ✅ Tabla creada")
+    print("   ✅ system_health_hourly - Salud del sistema hora a hora")
 
-# =============================================================================
-# CÁLCULO DE MÉTRICAS
-# =============================================================================
-
-def calculate_daily_traffic_metrics(client):
-    """Calcula métricas diarias de tráfico."""
-    print("\n📈 Calculando gold_daily_traffic_metrics...")
-    
-    client.command("TRUNCATE TABLE lakehouse.gold_daily_traffic_metrics")
-    
+    # 2.3 - Análisis de Errores 5xx (Crítico para DevOps)
+    # Detalla errores de servidor para troubleshooting
     client.command("""
-        INSERT INTO lakehouse.gold_daily_traffic_metrics
-        SELECT
-            event_date,
-            
-            -- Volumen
-            count() AS total_requests,
-            uniqExact(user_id) AS unique_users,
-            uniqExact(ip_address) AS unique_ips,
-            sum(bytes_sent) AS total_bytes_sent,
-            
-            -- Rendimiento
-            avg(response_time_ms) AS avg_response_time_ms,
-            quantile(0.95)(response_time_ms) AS p95_response_time_ms,
-            max(response_time_ms) AS max_response_time_ms,
-            
-            -- Errores
-            countIf(is_error = 1) AS error_count,
-            countIf(status_code >= 400 AND status_code < 500) AS client_error_count,
-            countIf(status_code >= 500) AS server_error_count,
-            countIf(is_error = 1) / count() AS error_rate,
-            
-            -- Seguridad
-            countIf(is_suspicious = 1) AS suspicious_count,
-            countIf(is_suspicious = 1) / count() AS suspicious_rate,
-            countIf(is_bot = 1) AS bot_requests
-            
-        FROM lakehouse.silver_logs_enriched
-        GROUP BY event_date
-        ORDER BY event_date
+    CREATE MATERIALIZED VIEW IF NOT EXISTS gold.server_errors_analysis
+    ENGINE = ReplacingMergeTree()
+    ORDER BY (error_hour, url_path, status_code)
+    POPULATE
+    AS SELECT
+        toStartOfHour(event_ts) AS error_hour,
+        url_path,
+        http_method,
+        status_code,
+        
+        -- Frecuencia del error
+        count() AS error_count,
+        
+        -- Impacto en usuarios
+        uniq(user_id) AS affected_users,
+        uniq(ip_address) AS affected_ips,
+        
+        -- User agents afectados (útil para debugging)
+        groupArray(5)(user_agent) AS sample_user_agents,
+        
+        -- Timing del error
+        min(event_ts) AS first_occurrence,
+        max(event_ts) AS last_occurrence,
+        
+        -- Performance en el momento del error
+        avg(response_time_ms) AS avg_error_response_time
+        
+    FROM silver.enriched_events
+    WHERE status_code >= 500
+    GROUP BY error_hour, url_path, http_method, status_code
     """)
-    
-    count = client.command("SELECT count() FROM lakehouse.gold_daily_traffic_metrics")
-    print(f"   ✅ {count} registros calculados")
+    print("   ✅ server_errors_analysis - Análisis detallado de errores 5xx")
 
-
-def calculate_user_activity_metrics(client):
-    """Calcula métricas de actividad por usuario."""
-    print("\n📈 Calculando gold_user_activity_metrics...")
+    # =========================================================================
+    # CATEGORÍA 3: ANÁLISIS DE USUARIOS
+    # =========================================================================
     
-    client.command("TRUNCATE TABLE lakehouse.gold_user_activity_metrics")
+    print("\n👥 [3/4] Creando vistas de USUARIOS...")
     
+    # 3.1 - Segmentación de Usuarios (Premium vs Free)
+    # Compara comportamiento entre segmentos de clientes
     client.command("""
-        INSERT INTO lakehouse.gold_user_activity_metrics
-        SELECT
-            -- Identificación
-            user_id,
-            any(username) AS username,
-            any(user_role) AS user_role,
-            any(user_country) AS user_country,
-            any(user_is_premium) AS is_premium,
-            
-            -- Actividad
-            count() AS total_requests,
-            min(event_ts) AS first_activity,
-            max(event_ts) AS last_activity,
-            uniqExact(event_date) AS distinct_days_active,
-            
-            -- Autenticación
-            countIf(url_category = 'authentication') AS login_attempts,
-            countIf(url_category = 'authentication' AND status_code IN (401, 403)) AS failed_logins,
-            -- Tasa de éxito en login
-            if(
-                countIf(url_category = 'authentication') > 0,
-                1 - (countIf(url_category = 'authentication' AND status_code IN (401, 403)) 
-                     / countIf(url_category = 'authentication')),
-                1.0
-            ) AS login_success_rate,
-            
-            -- Consumo
-            avg(response_time_ms) AS avg_response_time_ms,
-            sum(bytes_sent) AS total_bytes_consumed,
-            
-            -- Comportamiento
-            uniqExact(ip_address) AS distinct_ips_used,
-            uniqExact(url_path) AS distinct_urls_accessed,
-            countIf(url_category = 'admin') AS admin_access_count,
-            
-            -- Riesgo
-            countIf(is_error = 1) AS error_count,
-            countIf(is_suspicious = 1) AS suspicious_events,
-            any(user_risk_score) AS original_risk_score,
-            
-            -- Score combinado de riesgo
-            -- Factores: riesgo original, tasa de errores, eventos sospechosos, IPs múltiples
-            (any(user_risk_score) * 0.3) + 
-            (countIf(is_suspicious = 1) / greatest(count(), 1) * 0.25) +
-            (countIf(url_category = 'authentication' AND status_code IN (401, 403)) 
-                / greatest(count(), 1) * 0.25) +
-            (least(uniqExact(ip_address), 10) / 10.0 * 0.2) AS combined_risk_score
-            
-        FROM lakehouse.silver_logs_enriched
-        WHERE user_id != '' AND username != 'anonymous'
-        GROUP BY user_id
-        ORDER BY combined_risk_score DESC
+    CREATE MATERIALIZED VIEW IF NOT EXISTS gold.user_segment_analytics
+    ENGINE = SummingMergeTree()
+    ORDER BY (analysis_date, user_is_premium, user_country)
+    POPULATE
+    AS SELECT
+        toDate(event_ts) AS analysis_date,
+        user_is_premium,
+        user_country,
+        user_role,
+        
+        -- Métricas de engagement
+        uniq(user_id) AS unique_users,
+        count() AS total_requests,
+        
+        -- Comportamiento de uso
+        uniq(url_path) AS unique_pages_visited,
+        countIf(http_method = 'POST') AS interactive_actions,  -- Acciones que modifican datos
+        
+        -- Performance percibida
+        avg(response_time_ms) AS avg_perceived_latency,
+        
+        -- Calidad de servicio
+        countIf(status_code >= 500) AS server_errors_encountered,
+        (countIf(status_code < 400) * 100.0) / count() AS success_rate_pct,
+        
+        -- Seguridad
+        countIf(is_suspicious = 1) AS suspicious_activities,
+        countIf(ip_risk_level IN ('high', 'critical')) AS high_risk_sessions
+        
+    FROM silver.enriched_events
+    WHERE user_id != ''
+    GROUP BY analysis_date, user_is_premium, user_country, user_role
     """)
-    
-    count = client.command("SELECT count() FROM lakehouse.gold_user_activity_metrics")
-    print(f"   ✅ {count} registros calculados")
-    
-    # Mostrar top usuarios de riesgo
-    result = client.query("""
-        SELECT username, user_role, round(combined_risk_score, 3) as risk
-        FROM lakehouse.gold_user_activity_metrics
-        ORDER BY combined_risk_score DESC
-        LIMIT 3
-    """)
-    print("   🔴 Top 3 usuarios por riesgo:")
-    for row in result.result_rows:
-        print(f"      - {row[0]} ({row[1]}): {row[2]}")
+    print("   ✅ user_segment_analytics - Comparativa Premium vs Free")
 
-
-def calculate_ip_threat_analysis(client):
-    """Calcula análisis de amenazas por IP."""
-    print("\n📈 Calculando gold_ip_threat_analysis...")
-    
-    client.command("TRUNCATE TABLE lakehouse.gold_ip_threat_analysis")
-    
+    # 3.2 - Actividad Geográfica
+    # Distribución de uso por país con métricas clave
     client.command("""
-        INSERT INTO lakehouse.gold_ip_threat_analysis
-        SELECT
-            -- Identificación
-            ip_address,
-            any(ip_risk_level) AS ip_risk_level,
-            any(ip_threat_type) AS ip_threat_type,
-            any(ip_source) AS ip_source,
-            
-            -- Actividad
-            count() AS total_requests,
-            min(event_ts) AS first_seen,
-            max(event_ts) AS last_seen,
-            uniqExact(event_date) AS days_active,
-            
-            -- Impacto
-            uniqExact(user_id) AS distinct_users_affected,
-            uniqExact(url_path) AS distinct_urls_accessed,
-            
-            -- Comportamiento sospechoso
-            countIf(url_category = 'authentication') AS login_attempts,
-            countIf(url_category = 'authentication' AND status_code IN (401, 403)) AS failed_logins,
-            countIf(url_category = 'admin') AS admin_access_attempts,
-            countIf(is_suspicious = 1) AS suspicious_events,
-            countIf(is_error = 1) AS error_events,
-            
-            -- Threat Score calculado
-            -- Componentes:
-            -- 1. Nivel de riesgo base de la IP (30%)
-            -- 2. Tasa de eventos sospechosos (25%)
-            -- 3. Tasa de intentos de admin (25%)
-            -- 4. Tasa de fallos de autenticación (20%)
-            (
-                CASE any(ip_risk_level)
-                    WHEN 'critical' THEN 4
-                    WHEN 'high' THEN 3
-                    WHEN 'medium' THEN 2
-                    WHEN 'low' THEN 1
-                    ELSE 0
-                END * 0.30
-            ) +
-            (countIf(is_suspicious = 1) / greatest(count(), 1) * 1.25) +
-            (countIf(url_category = 'admin') / greatest(count(), 1) * 1.25) +
-            (countIf(status_code IN (401, 403)) / greatest(count(), 1) * 1.0) AS threat_score
-            
-        FROM lakehouse.silver_logs_enriched
-        GROUP BY ip_address
-        ORDER BY threat_score DESC
+    CREATE MATERIALIZED VIEW IF NOT EXISTS gold.geographic_activity
+    ENGINE = SummingMergeTree()
+    ORDER BY (activity_date, user_country)
+    POPULATE
+    AS SELECT
+        toDate(event_ts) AS activity_date,
+        user_country,
+        
+        -- Volumen
+        count() AS total_requests,
+        uniq(user_id) AS unique_users,
+        uniq(ip_address) AS unique_ips,
+        
+        -- Mix de usuarios
+        countIf(user_is_premium = 1) AS premium_users,
+        countIf(user_is_premium = 0) AS free_users,
+        
+        -- Performance regional
+        avg(response_time_ms) AS avg_latency_ms,
+        quantile(0.95)(response_time_ms) AS p95_latency_ms,
+        
+        -- Calidad de servicio regional
+        countIf(status_code >= 500) AS server_errors,
+        (countIf(status_code < 400) * 100.0) / count() AS success_rate_pct,
+        
+        -- Riesgos regionales
+        countIf(is_suspicious = 1) AS suspicious_events,
+        countIf(ip_risk_level IN ('high', 'critical')) AS high_risk_events,
+        uniq(if(ip_risk_level IN ('high', 'critical'), ip_address, NULL)) AS risky_ips_count
+        
+    FROM silver.enriched_events
+    WHERE user_country != '' AND user_country != 'XX'
+    GROUP BY activity_date, user_country
     """)
-    
-    count = client.command("SELECT count() FROM lakehouse.gold_ip_threat_analysis")
-    print(f"   ✅ {count} registros calculados")
-    
-    # Mostrar IPs más amenazantes
-    result = client.query("""
-        SELECT 
-            ip_address, 
-            ip_risk_level, 
-            ip_threat_type,
-            round(threat_score, 3) as score
-        FROM lakehouse.gold_ip_threat_analysis
-        WHERE ip_risk_level != 'unknown'
-        ORDER BY threat_score DESC
-        LIMIT 5
-    """)
-    print("   🔴 Top 5 IPs por amenaza:")
-    for row in result.result_rows:
-        print(f"      - {row[0]} [{row[1]}] {row[2]}: {row[3]}")
+    print("   ✅ geographic_activity - Métricas por país")
 
-
-def calculate_security_summary(client):
-    """Calcula resumen de seguridad diario."""
-    print("\n📈 Calculando gold_security_summary...")
-    
-    client.command("TRUNCATE TABLE lakehouse.gold_security_summary")
-    
+    # 3.3 - User Journey Analysis
+    # Analiza paths de navegación y conversión
     client.command("""
-        INSERT INTO lakehouse.gold_security_summary
-        SELECT
-            event_date AS summary_date,
-            
-            -- Volumen
-            count() AS total_events,
-            countIf(ip_risk_level IN ('high', 'critical') OR is_suspicious = 1) AS high_risk_events,
-            
-            -- IPs
-            uniqExact(ip_address) AS total_unique_ips,
-            uniqExactIf(ip_address, ip_risk_level = 'critical') AS critical_ips_active,
-            uniqExactIf(ip_address, ip_risk_level = 'high') AS high_risk_ips_active,
-            
-            -- Tipos de amenaza
-            countIf(ip_threat_type = 'brute_force') AS brute_force_attempts,
-            countIf(ip_threat_type = 'credential_stuffing') AS credential_stuffing_attempts,
-            countIf(ip_threat_type = 'suspicious_login') AS suspicious_logins,
-            
-            -- Usuarios afectados
-            uniqExact(user_id) AS total_users_active,
-            uniqExactIf(user_id, user_is_premium = 1 AND 
-                (is_suspicious = 1 OR ip_risk_level IN ('high', 'critical'))) AS premium_users_affected,
-            uniqExactIf(user_id, user_role = 'admin' AND 
-                (is_suspicious = 1 OR ip_risk_level IN ('high', 'critical'))) AS admin_accounts_targeted,
-            
-            -- Métricas agregadas
-            avgIf(
-                CASE ip_risk_level
-                    WHEN 'critical' THEN 4
-                    WHEN 'high' THEN 3
-                    WHEN 'medium' THEN 2
-                    WHEN 'low' THEN 1
-                    ELSE 0
-                END,
-                ip_risk_level != 'unknown'
-            ) AS avg_threat_score,
-            maxIf(
-                CASE ip_risk_level
-                    WHEN 'critical' THEN 4
-                    WHEN 'high' THEN 3
-                    WHEN 'medium' THEN 2
-                    WHEN 'low' THEN 1
-                    ELSE 0
-                END,
-                ip_risk_level != 'unknown'
-            ) AS max_threat_score,
-            -- Tipo de amenaza más común (excluyendo benignas)
-            anyIf(ip_threat_type, 
-                ip_threat_type NOT IN ('benign', 'internal_traffic', 'unknown')) AS top_threat_type
-            
-        FROM lakehouse.silver_logs_enriched
-        GROUP BY event_date
-        ORDER BY summary_date
+    CREATE MATERIALIZED VIEW IF NOT EXISTS gold.user_journey_metrics
+    ENGINE = AggregatingMergeTree()
+    ORDER BY (journey_date, user_id)
+    POPULATE
+    AS SELECT
+        user_id,
+        user_name,
+        user_role,
+        user_is_premium,
+        toDate(min(event_ts)) AS journey_date,
+        
+        -- Sesión
+        count() AS page_views,
+        uniq(url_path) AS unique_pages,
+        
+        -- Timeline
+        min(event_ts) AS session_start,
+        max(event_ts) AS session_end,
+        dateDiff('minute', min(event_ts), max(event_ts)) AS session_duration_minutes,
+        
+        -- Camino del usuario (primeras 5 páginas visitadas)
+        groupArray(5)(url_path) AS navigation_path,
+        
+        -- Engagement
+        countIf(http_method = 'POST') AS actions_taken,
+        countIf(status_code = 200) AS successful_loads,
+        
+        -- Fricción
+        countIf(status_code = 404) AS not_found_errors,
+        countIf(status_code >= 500) AS server_errors_faced,
+        avg(response_time_ms) AS avg_load_time
+        
+    FROM silver.enriched_events
+    WHERE user_id != ''
+    GROUP BY user_id, user_name, user_role, user_is_premium
     """)
-    
-    count = client.command("SELECT count() FROM lakehouse.gold_security_summary")
-    print(f"   ✅ {count} registros calculados")
+    print("   ✅ user_journey_metrics - Análisis de navegación por usuario")
 
-
-def calculate_hourly_patterns(client):
-    """Calcula patrones de tráfico por hora y día."""
-    print("\n📈 Calculando gold_hourly_patterns...")
+    # =========================================================================
+    # CATEGORÍA 4: BUSINESS INTELLIGENCE (KPIs EJECUTIVOS)
+    # =========================================================================
     
-    client.command("TRUNCATE TABLE lakehouse.gold_hourly_patterns")
+    print("\n📊 [4/4] Creando vistas de BUSINESS INTELLIGENCE...")
     
+    # 4.1 - Dashboard Ejecutivo Diario
+    # Vista consolidada de todos los KPIs críticos del negocio
     client.command("""
-        INSERT INTO lakehouse.gold_hourly_patterns
-        SELECT
-            event_hour,
-            event_day_of_week AS day_of_week,
-            
-            -- Volumen
-            count() AS total_requests,
-            uniqExact(user_id) AS unique_users,
-            uniqExact(ip_address) AS unique_ips,
-            
-            -- Rendimiento
-            avg(response_time_ms) AS avg_response_time_ms,
-            
-            -- Tasas
-            countIf(is_error = 1) / count() AS error_rate,
-            countIf(is_suspicious = 1) / count() AS suspicious_rate,
-            countIf(is_bot = 1) / count() AS bot_rate,
-            
-            -- Categoría más común
-            topK(1)(url_category)[1] AS top_url_category
-            
-        FROM lakehouse.silver_logs_enriched
-        GROUP BY event_hour, event_day_of_week
-        ORDER BY day_of_week, event_hour
+    CREATE MATERIALIZED VIEW IF NOT EXISTS gold.executive_daily_kpis
+    ENGINE = ReplacingMergeTree()
+    ORDER BY kpi_date
+    POPULATE
+    AS SELECT
+        toDate(event_ts) AS kpi_date,
+        
+        -- TRÁFICO
+        count() AS total_requests,
+        uniq(user_id) AS daily_active_users,
+        uniq(ip_address) AS unique_visitors,
+        
+        -- SEGMENTACIÓN DE CLIENTES
+        uniqIf(user_id, user_is_premium = 1) AS premium_active_users,
+        uniqIf(user_id, user_is_premium = 0) AS free_active_users,
+        (uniqIf(user_id, user_is_premium = 1) * 100.0) / uniq(user_id) AS premium_user_pct,
+        
+        -- ENGAGEMENT
+        sum(bytes_sent) / 1024 / 1024 / 1024 AS total_gb_transferred,
+        
+        -- CALIDAD DE SERVICIO
+        (countIf(status_code < 400) * 100.0) / count() AS overall_success_rate,
+        avg(response_time_ms) AS avg_response_time,
+        quantile(0.95)(response_time_ms) AS p95_response_time,
+        
+        -- SEGURIDAD (CRITICAL METRIC)
+        countIf(is_suspicious = 1) AS total_suspicious_events,
+        (countIf(is_suspicious = 1) * 100.0) / count() AS suspicious_event_rate,
+        uniqIf(ip_address, ip_risk_level IN ('high', 'critical')) AS high_risk_ips,
+        uniqIf(user_id, is_suspicious = 1) AS users_with_suspicious_activity,
+        
+        -- ERRORES
+        countIf(status_code >= 500) AS server_errors,
+        (countIf(status_code >= 500) * 100.0) / count() AS error_rate_pct,
+        
+        -- DISTRIBUCIÓN GEOGRÁFICA
+        uniq(user_country) AS countries_served
+        
+    FROM silver.enriched_events
+    GROUP BY kpi_date
     """)
+    print("   ✅ executive_daily_kpis - Dashboard ejecutivo consolidado")
+
+    # 4.2 - Revenue Proxy (Estimación de valor basada en engagement)
+    # Aunque no hay datos de revenue, estimamos valor por engagement
+    client.command("""
+    CREATE MATERIALIZED VIEW IF NOT EXISTS gold.user_value_estimation
+    ENGINE = SummingMergeTree()
+    ORDER BY (value_date, user_id)
+    POPULATE
+    AS SELECT
+        toDate(event_ts) AS value_date,
+        user_id,
+        user_name,
+        user_is_premium,
+        user_country,
+        
+        -- Métricas de engagement (proxy de valor)
+        count() AS activity_score,  -- Más actividad = mayor valor
+        uniq(toDate(event_ts)) AS days_active,
+        countIf(http_method = 'POST') AS conversion_actions,
+        
+        -- Valor estimado (fórmula simplificada)
+        -- Premium users valen más, más acciones valen más
+        (
+            count() * 1.0 +  -- Cada request = 1 punto
+            countIf(http_method = 'POST') * 5.0 +  -- Cada acción = 5 puntos
+            if(user_is_premium = 1, count() * 2.0, 0)  -- Premium users 3x
+        ) AS estimated_value_points,
+        
+        -- Calidad del engagement
+        (countIf(status_code < 400) * 100.0) / count() AS positive_experience_rate,
+        avg(response_time_ms) AS avg_perceived_speed
+        
+    FROM silver.enriched_events
+    WHERE user_id != ''
+    GROUP BY value_date, user_id, user_name, user_is_premium, user_country
+    """)
+    print("   ✅ user_value_estimation - Estimación de valor por usuario")
+
+    # 4.3 - Tendencias Semanales (Week-over-Week)
+    # Compara métricas clave semana a semana
+    client.command("""
+    CREATE MATERIALIZED VIEW IF NOT EXISTS gold.weekly_trends
+    ENGINE = SummingMergeTree()
+    ORDER BY week_start
+    POPULATE
+    AS SELECT
+        toMonday(event_ts) AS week_start,
+        
+        -- Crecimiento de usuarios
+        uniq(user_id) AS weekly_active_users,
+        uniq(ip_address) AS weekly_unique_visitors,
+        
+        -- Volumen
+        count() AS total_requests,
+        sum(bytes_sent) / 1024 / 1024 / 1024 AS total_gb_transferred,
+        
+        -- Calidad
+        avg(response_time_ms) AS avg_response_time,
+        (countIf(status_code < 400) * 100.0) / count() AS success_rate,
+        
+        -- Seguridad
+        countIf(is_suspicious = 1) AS suspicious_events,
+        uniqIf(ip_address, ip_risk_level IN ('high', 'critical')) AS risky_ips,
+        
+        -- Engagement premium
+        uniqIf(user_id, user_is_premium = 1) AS premium_users,
+        countIf(user_is_premium = 1) AS premium_requests,
+        
+        -- Mix geográfico
+        uniq(user_country) AS countries_active
+        
+    FROM silver.enriched_events
+    GROUP BY week_start
+    """)
+    print("   ✅ weekly_trends - Evolución semanal de KPIs")
+
+    # =========================================================================
+    # FINALIZACIÓN Y VERIFICACIÓN
+    # =========================================================================
     
-    count = client.command("SELECT count() FROM lakehouse.gold_hourly_patterns")
-    print(f"   ✅ {count} registros calculados")
-
-# =============================================================================
-# VERIFICACIÓN Y CONSULTAS DE EJEMPLO
-# =============================================================================
-
-def verify_gold_layer(client):
-    """Verifica la capa Gold y muestra estadísticas."""
+    duration = time.time() - start_time
     print("\n" + "="*60)
-    print("🔍 VERIFICACIÓN CAPA GOLD")
+    print("✅ CAPA GOLD CREADA EXITOSAMENTE")
     print("="*60)
+    print(f"⏱️  Tiempo total: {duration:.2f} segundos")
+    print(f"\n📈 Vistas materializadas creadas:")
+    print("\n🔒 SEGURIDAD (3 vistas):")
+    print("   • security_daily_summary")
+    print("   • top_malicious_ips")
+    print("   • user_security_alerts")
+    print("\n⚡ RENDIMIENTO (3 vistas):")
+    print("   • endpoint_performance")
+    print("   • system_health_hourly")
+    print("   • server_errors_analysis")
+    print("\n👥 USUARIOS (3 vistas):")
+    print("   • user_segment_analytics")
+    print("   • geographic_activity")
+    print("   • user_journey_metrics")
+    print("\n📊 BUSINESS INTELLIGENCE (3 vistas):")
+    print("   • executive_daily_kpis")
+    print("   • user_value_estimation")
+    print("   • weekly_trends")
+    print("\n" + "="*60)
     
-    tables = [
-        'gold_daily_traffic_metrics',
-        'gold_user_activity_metrics',
-        'gold_ip_threat_analysis',
-        'gold_security_summary',
-        'gold_hourly_patterns'
+    # Mostrar conteos de cada vista para verificación
+    print("\n🔍 Verificando datos en vistas materializadas...")
+    views = [
+        'security_daily_summary', 'top_malicious_ips', 'user_security_alerts',
+        'endpoint_performance', 'system_health_hourly', 'server_errors_analysis',
+        'user_segment_analytics', 'geographic_activity', 'user_journey_metrics',
+        'executive_daily_kpis', 'user_value_estimation', 'weekly_trends'
     ]
     
-    print("\n📊 Conteo de registros:")
-    for table in tables:
-        count = client.command(f"SELECT count() FROM lakehouse.{table}")
-        print(f"   - {table}: {count}")
+    for view in views:
+        try:
+            count = client.command(f"SELECT count() FROM gold.{view}")
+            print(f"   ✓ gold.{view}: {count:,} registros")
+        except Exception as e:
+            print(f"   ✗ gold.{view}: Error - {e}")
 
 
-def show_gold_insights(client):
-    """Muestra insights de las tablas Gold."""
+def query_gold_examples():
+    """
+    Ejemplos de consultas útiles sobre las vistas Gold.
+    Esta función muestra cómo consumir los datos de la capa Gold.
+    """
+    client = conf.get_client()
     print("\n" + "="*60)
-    print("💡 INSIGHTS DE LA CAPA GOLD")
+    print("📊 EJEMPLOS DE CONSULTAS A CAPA GOLD")
     print("="*60)
     
-    # Insight 1: Resumen de tráfico
-    print("\n📊 Resumen de Tráfico Diario:")
+    # Ejemplo 1: Top 5 países con más tráfico
+    print("\n1️⃣ Top 5 países por volumen de tráfico:")
     result = client.query("""
         SELECT 
-            event_date,
-            total_requests,
-            unique_users,
-            round(error_rate * 100, 2) as error_pct,
-            round(suspicious_rate * 100, 2) as suspicious_pct
-        FROM lakehouse.gold_daily_traffic_metrics
-        ORDER BY event_date
-    """)
-    for row in result.result_rows:
-        print(f"   {row[0]}: {row[1]} requests, {row[2]} users, {row[3]}% errors, {row[4]}% suspicious")
-    
-    # Insight 2: Top amenazas
-    print("\n🔴 Top 5 IPs Más Amenazantes:")
-    result = client.query("""
-        SELECT 
-            ip_address,
-            ip_threat_type,
-            total_requests,
-            failed_logins,
-            round(threat_score, 2) as score
-        FROM lakehouse.gold_ip_threat_analysis
-        ORDER BY threat_score DESC
+            user_country,
+            sum(total_requests) as requests,
+            sum(unique_users) as users,
+            avg(success_rate_pct) as avg_success_rate
+        FROM gold.geographic_activity
+        WHERE activity_date >= today() - 7
+        GROUP BY user_country
+        ORDER BY requests DESC
         LIMIT 5
     """)
-    for row in result.result_rows:
-        print(f"   {row[0]} | {row[1]} | {row[2]} reqs | {row[3]} failed | score: {row[4]}")
+    print(result.result_rows)
     
-    # Insight 3: Usuarios de alto riesgo
-    print("\n👤 Usuarios con Mayor Riesgo Combinado:")
+    # Ejemplo 2: Alertas de seguridad de hoy
+    print("\n2️⃣ Usuarios con alertas de seguridad recientes:")
     result = client.query("""
         SELECT 
-            username,
-            user_role,
-            total_requests,
-            suspicious_events,
-            round(combined_risk_score, 3) as risk
-        FROM lakehouse.gold_user_activity_metrics
-        ORDER BY combined_risk_score DESC
-        LIMIT 5
+            user_name,
+            user_email,
+            calculated_risk_score,
+            suspicious_activities,
+            high_risk_ip_usage
+        FROM gold.user_security_alerts
+        WHERE alert_date >= today() - 1
+        ORDER BY calculated_risk_score DESC
+        LIMIT 10
     """)
-    for row in result.result_rows:
-        print(f"   {row[0]} ({row[1]}): {row[2]} reqs, {row[3]} suspicious, risk: {row[4]}")
+    print(result.result_rows)
     
-    # Insight 4: Resumen de seguridad
-    print("\n🛡️ Resumen de Seguridad:")
+    # Ejemplo 3: KPIs ejecutivos del día
+    print("\n3️⃣ KPIs ejecutivos de hoy:")
     result = client.query("""
         SELECT 
-            summary_date,
-            high_risk_events,
-            brute_force_attempts,
-            credential_stuffing_attempts,
-            top_threat_type
-        FROM lakehouse.gold_security_summary
-        ORDER BY summary_date
+            kpi_date,
+            daily_active_users,
+            premium_user_pct,
+            overall_success_rate,
+            avg_response_time,
+            suspicious_event_rate
+        FROM gold.executive_daily_kpis
+        ORDER BY kpi_date DESC
+        LIMIT 1
     """)
-    for row in result.result_rows:
-        print(f"   {row[0]}: {row[1]} high-risk, {row[2]} brute-force, {row[3]} cred-stuffing, top: {row[4]}")
+    print(result.result_rows)
+    
+    # Ejemplo 4: Endpoints más lentos
+    print("\n4️⃣ Top 10 endpoints más lentos (última hora):")
+    result = client.query("""
+        SELECT 
+            url_path,
+            http_method,
+            avg(avg_latency_ms) as avg_latency,
+            sum(total_requests) as requests
+        FROM gold.endpoint_performance
+        WHERE performance_hour >= now() - INTERVAL 1 HOUR
+        GROUP BY url_path, http_method
+        ORDER BY avg_latency DESC
+        LIMIT 10
+    """)
+    print(result.result_rows)
 
-# =============================================================================
-# FUNCIÓN PRINCIPAL
-# =============================================================================
 
 def run_gold_layer():
-    """Ejecuta la creación y cálculo de la capa Gold."""
-    print("\n" + "="*70)
-    print("🥇 CAPA GOLD - MÉTRICAS Y KPIs DE NEGOCIO")
-    print("="*70)
-    
-    # Conectar
-    #client = conf.get_client()
-    
+    """
+    Función principal para ejecutar toda la capa Gold.
+    """
     try:
-        # Crear tablas Gold
-        print("\n" + "-"*60)
-        print("📋 CREANDO TABLAS GOLD")
-        print("-"*60)
-        create_gold_daily_traffic_table(client)
-        create_gold_user_activity_table(client)
-        create_gold_ip_threat_table(client)
-        create_gold_security_summary_table(client)
-        create_gold_hourly_patterns_table(client)
-        
-        # Calcular métricas
-        print("\n" + "-"*60)
-        print("📊 CALCULANDO MÉTRICAS")
-        print("-"*60)
-        calculate_daily_traffic_metrics(client)
-        calculate_user_activity_metrics(client)
-        calculate_ip_threat_analysis(client)
-        calculate_security_summary(client)
-        calculate_hourly_patterns(client)
-        
-        # Verificar y mostrar insights
-        verify_gold_layer(client)
-        show_gold_insights(client)
-        
-        print("\n" + "="*70)
-        print("✅ CAPA GOLD COMPLETADA")
-        print("="*70)
-        
+        create_gold_views()
+        # Descomentar para ver ejemplos de queries
+        # query_gold_examples()
     except Exception as e:
-        print(f"\n❌ Error: {e}")
+        print(f"\n❌ Error en capa Gold: {e}")
         raise
 
 
