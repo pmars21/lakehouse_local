@@ -14,6 +14,8 @@ import sys
 import mongo as mng
 import lakehouseConfig as lakehouseConfig
 import bronze_layer as bl
+import silver_layer as sl
+import gold_layer as gl
 
 def main():
     print("="*50)
@@ -52,24 +54,24 @@ def main():
     # ------------------------------------------------------
     # PASO 4: Procesamiento Capa Silver (Clean & Join)
     # ------------------------------------------------------
-    # print("\n🥈 [PASO 4/5] Procesando Capa SILVER...")
-    # print("   🚧 (Pendiente de implementar: script step4_silver_process.py)")
-    # try:
-    #     s4.process_silver()
-    # except Exception as e:
-    #     print(f"❌ Falló el Paso 4: {e}")
-    #     sys.exit(1)
+    print("\n🥈 [PASO 4/5] Procesando Capa SILVER...")
+    print("   🚧 (Pendiente de implementar: script step4_silver_process.py)")
+    try:
+         sl.process_silver()
+    except Exception as e:
+         print(f"❌ Falló el Paso 4: {e}")
+         sys.exit(1)
 
     # ------------------------------------------------------
     # PASO 5: Agregación Capa Gold (Business KPIs)
     # ------------------------------------------------------
-    # print("\n🥇 [PASO 5/5] Calculando KPIs Capa GOLD...")
-    # print("   🚧 (Pendiente de implementar: script step5_gold_kpis.py)")
-    # try:
-    #     s5.calculate_gold()
-    # except Exception as e:
-    #     print(f"❌ Falló el Paso 5: {e}")
-    #     sys.exit(1)
+    print("\n🥇 [PASO 5/5] Calculando KPIs Capa GOLD...")
+    print("   🚧 (Pendiente de implementar: script step5_gold_kpis.py)")
+    try:
+         gl.run_gold_layer()
+    except Exception as e:
+        print(f"❌ Falló el Paso 5: {e}")
+        sys.exit(1)
 
     # ------------------------------------------------------
     # FIN
