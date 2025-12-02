@@ -20,7 +20,7 @@ def ingest_bronze():
     ch_client = lakehouseConfig.get_client()
     mongo_client, mongo_db = mng.create_mongo_connection()
     
-    print("🚀 Iniciando ingesta a Capa BRONZE...")
+    print("Iniciando ingesta a Capa BRONZE...")
 
     # ---------------------------------------------------------
     # 1. INGESTA LOGS (CSV) -> ClickHouse (bronze.logs_web)
@@ -37,11 +37,11 @@ def ingest_bronze():
             
             # Insertar en ClickHouse
             ch_client.insert_df('bronze.logs_web', df_logs)
-            print(f"✅ [logs_web] Ingestados {len(df_logs)} registros en Bronze.")
+            print(f"[logs_web] Ingestados {len(df_logs)} registros en Bronze.")
         else:
-            print(f"❌ No se encuentra el fichero CSV: {path_logs_csv}")
+            print(f" No se encuentra el fichero CSV: {path_logs_csv}")
     except Exception as e:
-        print(f"❌ Error ingestando Logs: {e}")
+        print(f" Error ingestando Logs: {e}")
 
     # ---------------------------------------------------------
     # 2. INGESTA USERS (Mongo) -> ClickHouse (bronze.users)
@@ -74,12 +74,12 @@ def ingest_bronze():
             column_names = ['_id', 'username', 'email', 'role', 'country', 'created_at', 'is_premium', 'risk_score']
             
             ch_client.insert('bronze.users', data_to_insert, column_names=column_names)
-            print(f"✅ [users] Ingestados {len(data_to_insert)} usuarios desde Mongo.")
+            print(f" [users] Ingestados {len(data_to_insert)} usuarios desde Mongo.")
         else:
-            print("⚠️ La colección 'users' en Mongo está vacía.")
+            print("La colección 'users' en Mongo está vacía.")
             
     except Exception as e:
-        print(f"❌ Error ingestando Users: {e}")
+        print(f" Error ingestando Users: {e}")
 
     # ---------------------------------------------------------
     # 3. INGESTA IP_REPUTATION (Mongo) -> ClickHouse (bronze.ip_reputation)
@@ -104,12 +104,12 @@ def ingest_bronze():
             column_names = ['ip', 'source', 'risk_level', 'threat_type', 'last_seen']
             
             ch_client.insert('bronze.ip_reputation', data_to_insert, column_names=column_names)
-            print(f"✅ [ip_reputation] Ingestadas {len(data_to_insert)} IPs desde Mongo.")
+            print(f" [ip_reputation] Ingestadas {len(data_to_insert)} IPs desde Mongo.")
         else:
-            print("⚠️ La colección 'ip_reputation' en Mongo está vacía.")
+            print(" La colección 'ip_reputation' en Mongo está vacía.")
 
     except Exception as e:
-        print(f"❌ Error ingestando IP Reputation: {e}")
+        print(f" Error ingestando IP Reputation: {e}")
 
     # Cerrar conexiones
     mongo_client.close()

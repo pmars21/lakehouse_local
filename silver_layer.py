@@ -5,7 +5,7 @@ import lakehouseConfig as conf
 
 def process_silver():
     client = conf.get_client()
-    print("🚀 Iniciando procesamiento Capa SILVER...")
+    print(" Iniciando procesamiento Capa SILVER...")
     start_time = time.time()
 
     # 1. DEFINICIÓN DE TABLA SILVER (DDL)
@@ -44,7 +44,7 @@ def process_silver():
     ORDER BY event_ts
     """
     client.command(ddl_silver)
-    print("✅ Tabla 'silver.enriched_events' verificada.")
+    print(" Tabla 'silver.enriched_events' verificada.")
 
     # 2. LIMPIEZA PREVIA (Idempotencia)
     # ---------------------------------------------------------
@@ -105,9 +105,8 @@ def process_silver():
     count = client.command("SELECT count() FROM silver.enriched_events")
     duration = time.time() - start_time
     
-    print(f"✅ Procesamiento Silver completado.")
-    print(f"📊 Registros generados: {count}")
-    print(f"⏱️  Tiempo de ejecución: {duration:.2f} segundos")
+    print(f"Procesamiento Silver completado.")
+    print(f"Registros generados: {count}")
     print("-" * 30)
 
 if __name__ == "__main__":

@@ -19,14 +19,14 @@ def get_client():
 
 def setup_lakehouse():
     client = get_client()
-    print("🔌 Conectado a ClickHouse.")
+    print(" Conectado a ClickHouse.")
 
     # 1. CREAR LAS BASES DE DATOS (Capas del Lakehouse)
     # ---------------------------------------------------------
     databases = ['bronze', 'silver', 'gold']
     for db in databases:
         client.command(f"CREATE DATABASE IF NOT EXISTS {db}")
-        print(f"✅ Base de datos '{db}' lista.")
+        print(f" Base de datos '{db}' lista.")
 
     # 2. CREAR TABLAS CAPA BRONZE (Estructura Raw)
     # ---------------------------------------------------------
@@ -51,7 +51,7 @@ def setup_lakehouse():
     ) ENGINE = MergeTree()
     ORDER BY tuple()             -- En Bronze a veces no hay orden claro, o usas event_id
     """)
-    print("✅ Tabla 'bronze.logs_web' creada.")
+    print("Tabla 'bronze.logs_web' creada.")
 
     # B. Tabla Users (viene de Mongo -> users.json) [cite: 10]
     # Definimos columnas según anexo
@@ -68,7 +68,7 @@ def setup_lakehouse():
     ) ENGINE = MergeTree()
     ORDER BY _id
     """)
-    print("✅ Tabla 'bronze.users' creada.")
+    print(" Tabla 'bronze.users' creada.")
 
     # C. Tabla IP Reputation (viene de Mongo -> ip_reputation.json) 
     # Definimos columnas según anexo 
@@ -82,14 +82,14 @@ def setup_lakehouse():
     ) ENGINE = MergeTree()
     ORDER BY ip
     """)
-    print("✅ Tabla 'bronze.ip_reputation' creada.")
+    print("Tabla 'bronze.ip_reputation' creada.")
     
     print("-" * 30)
-    print("🏛️  Estructura Lakehouse inicializada correctamente.")
+    print("Estructura Lakehouse inicializada correctamente.")
 
-#if __name__ == "__main__":
-#    try:
-#        setup_lakehouse()
-#    except Exception as e:
-#        print(f"❌ Error conectando a ClickHouse: {e}")
-#        print("Asegúrate de que ClickHouse server está corriendo (docker o local).")
+if __name__ == "__main__":
+    try:
+        setup_lakehouse()
+    except Exception as e:
+        print(f" Error conectando a ClickHouse: {e}")
+        print("Asegúrate de que ClickHouse server está corriendo (docker o local).")

@@ -26,14 +26,14 @@ def create_gold_views():
     - Menor costo computacional en análisis repetitivos
     """
     client = conf.get_client()
-    print("🥇 Iniciando creación de Capa GOLD...")
+    print(" Iniciando creación de Capa GOLD...")
     start_time = time.time()
 
     # =========================================================================
     # CATEGORÍA 1: SEGURIDAD Y DETECCIÓN DE AMENAZAS
     # =========================================================================
     
-    print("\n🔒 [1/4] Creando vistas de SEGURIDAD...")
+    print("\n [1/4] Creando vistas de SEGURIDAD...")
     
     # 1.1 - Dashboard de Seguridad Diario
     # Agrega eventos sospechosos, IPs de riesgo y amenazas por día
@@ -63,7 +63,7 @@ def create_gold_views():
     FROM silver.enriched_events
     GROUP BY event_date, ip_risk_level, ip_threat_type
     """)
-    print("   ✅ security_daily_summary - Dashboard diario de seguridad")
+    print("security_daily_summary - Dashboard diario de seguridad")
 
     # 1.2 - Top IPs Maliciosas
     # Ranking de IPs más activas con comportamiento sospechoso
@@ -97,7 +97,7 @@ def create_gold_views():
        OR is_suspicious = 1
     GROUP BY ip_address, event_hour, ip_risk_level, ip_threat_type, ip_source
     """)
-    print("   ✅ top_malicious_ips - Ranking de IPs peligrosas por hora")
+    print("top_malicious_ips - Ranking de IPs peligrosas por hora")
 
     # 1.3 - Alertas de Usuarios Comprometidos
     # Detecta usuarios con alto riesgo o comportamiento anómalo
@@ -137,13 +137,13 @@ def create_gold_views():
     GROUP BY user_id, user_name, user_email, user_country, alert_date
     HAVING calculated_risk_score > 50  -- Solo alertas significativas
     """)
-    print("   ✅ user_security_alerts - Detección de usuarios comprometidos")
+    print(" user_security_alerts - Detección de usuarios comprometidos")
 
     # =========================================================================
     # CATEGORÍA 2: RENDIMIENTO Y DISPONIBILIDAD
     # =========================================================================
     
-    print("\n⚡ [2/4] Creando vistas de RENDIMIENTO...")
+    print("\n [2/4] Creando vistas de RENDIMIENTO...")
     
     # 2.1 - SLA y Disponibilidad por Endpoint
     # Métricas de latencia y disponibilidad para cada URL
@@ -182,7 +182,7 @@ def create_gold_views():
     FROM silver.enriched_events
     GROUP BY url_path, http_method, performance_hour
     """)
-    print("   ✅ endpoint_performance - SLA y latencias por endpoint")
+    print(" endpoint_performance - SLA y latencias por endpoint")
 
     # 2.2 - Health Check Global por Hora
     # Vista consolidada del estado general del sistema
@@ -221,7 +221,7 @@ def create_gold_views():
     FROM silver.enriched_events
     GROUP BY health_hour
     """)
-    print("   ✅ system_health_hourly - Salud del sistema hora a hora")
+    print(" system_health_hourly - Salud del sistema hora a hora")
 
     # 2.3 - Análisis de Errores 5xx (Crítico para DevOps)
     # Detalla errores de servidor para troubleshooting
@@ -257,7 +257,7 @@ def create_gold_views():
     WHERE status_code >= 500
     GROUP BY error_hour, url_path, http_method, status_code
     """)
-    print("   ✅ server_errors_analysis - Análisis detallado de errores 5xx")
+    print(" server_errors_analysis - Análisis detallado de errores 5xx")
 
     # =========================================================================
     # CATEGORÍA 3: ANÁLISIS DE USUARIOS
@@ -301,7 +301,7 @@ def create_gold_views():
     WHERE user_id != ''
     GROUP BY analysis_date, user_is_premium, user_country, user_role
     """)
-    print("   ✅ user_segment_analytics - Comparativa Premium vs Free")
+    print(" user_segment_analytics - Comparativa Premium vs Free")
 
     # 3.2 - Actividad Geográfica
     # Distribución de uso por país con métricas clave
@@ -340,7 +340,7 @@ def create_gold_views():
     WHERE user_country != '' AND user_country != 'XX'
     GROUP BY activity_date, user_country
     """)
-    print("   ✅ geographic_activity - Métricas por país")
+    print(" geographic_activity - Métricas por país")
 
     # 3.3 - User Journey Analysis
     # Analiza paths de navegación y conversión
@@ -381,13 +381,13 @@ def create_gold_views():
     WHERE user_id != ''
     GROUP BY user_id, user_name, user_role, user_is_premium
     """)
-    print("   ✅ user_journey_metrics - Análisis de navegación por usuario")
+    print("  user_journey_metrics - Análisis de navegación por usuario")
 
     # =========================================================================
     # CATEGORÍA 4: BUSINESS INTELLIGENCE (KPIs EJECUTIVOS)
     # =========================================================================
     
-    print("\n📊 [4/4] Creando vistas de BUSINESS INTELLIGENCE...")
+    print("\n [4/4] Creando vistas de BUSINESS INTELLIGENCE...")
     
     # 4.1 - Dashboard Ejecutivo Diario
     # Vista consolidada de todos los KPIs críticos del negocio
@@ -433,7 +433,7 @@ def create_gold_views():
     FROM silver.enriched_events
     GROUP BY kpi_date
     """)
-    print("   ✅ executive_daily_kpis - Dashboard ejecutivo consolidado")
+    print("executive_daily_kpis - Dashboard ejecutivo consolidado")
 
     # 4.2 - Revenue Proxy (Estimación de valor basada en engagement)
     # Aunque no hay datos de revenue, estimamos valor por engagement
@@ -562,11 +562,11 @@ def query_gold_examples():
     """
     client = conf.get_client()
     print("\n" + "="*60)
-    print("📊 EJEMPLOS DE CONSULTAS A CAPA GOLD")
+    print(" EJEMPLOS DE CONSULTAS A CAPA GOLD")
     print("="*60)
     
     # Ejemplo 1: Top 5 países con más tráfico
-    print("\n1️⃣ Top 5 países por volumen de tráfico:")
+    print("\n Top 5 países por volumen de tráfico:")
     result = client.query("""
         SELECT 
             user_country,
@@ -582,7 +582,7 @@ def query_gold_examples():
     print(result.result_rows)
     
     # Ejemplo 2: Alertas de seguridad de hoy
-    print("\n2️⃣ Usuarios con alertas de seguridad recientes:")
+    print("\n Usuarios con alertas de seguridad recientes:")
     result = client.query("""
         SELECT 
             user_name,
@@ -598,7 +598,7 @@ def query_gold_examples():
     print(result.result_rows)
     
     # Ejemplo 3: KPIs ejecutivos del día
-    print("\n3️⃣ KPIs ejecutivos de hoy:")
+    print("\n KPIs ejecutivos de hoy:")
     result = client.query("""
         SELECT 
             kpi_date,
@@ -614,7 +614,7 @@ def query_gold_examples():
     print(result.result_rows)
     
     # Ejemplo 4: Endpoints más lentos
-    print("\n4️⃣ Top 10 endpoints más lentos (última hora):")
+    print("\n Top 10 endpoints más lentos (última hora):")
     result = client.query("""
         SELECT 
             url_path,
@@ -639,7 +639,7 @@ def run_gold_layer():
         # Descomentar para ver ejemplos de queries
         # query_gold_examples()
     except Exception as e:
-        print(f"\n❌ Error en capa Gold: {e}")
+        print(f"\n Error en capa Gold: {e}")
         raise
 
 

@@ -25,20 +25,20 @@ def main():
     # ------------------------------------------------------
     # PASO 1: Carga de Datos Operacionales (MongoDB)
     # ------------------------------------------------------
-    print("\n📦 [PASO 1/5] Cargando datos en MongoDB...")
+    print("\n[PASO 1/5] Cargando datos en MongoDB...")
     try:
         mng.load_data_to_mongo() # Llamamos a la función principal del script 1
     except Exception as e:
-        print(f"❌ Falló el Paso 1: {e}")
+        print(f"Falló el Paso 1: {e}")
         sys.exit(1) # Detenemos todo si falla la fuente
      #------------------------------------------------------
      #PASO 2: Inicialización de Estructura (ClickHouse DDL)
      #------------------------------------------------------
-    print("\n🏗️  [PASO 2/5] Creando estructura del Lakehouse...")
+    print("\n [PASO 2/5] Creando estructura del Lakehouse...")
     try:
         lakehouseConfig.setup_lakehouse() # Llamamos a la función del script 2
     except Exception as e:
-        print(f"❌ Falló el Paso 2: {e}")
+        print(f"Falló el Paso 2: {e}")
         sys.exit(1)
 
     # ------------------------------------------------------
@@ -48,38 +48,31 @@ def main():
     try:
         bl.ingest_bronze() # Llamamos a la función del script 3
     except Exception as e:
-        print(f"❌ Falló el Paso 3: {e}")
+        print(f" Falló el Paso 3: {e}")
         sys.exit(1)
 
     # ------------------------------------------------------
     # PASO 4: Procesamiento Capa Silver (Clean & Join)
     # ------------------------------------------------------
-    print("\n🥈 [PASO 4/5] Procesando Capa SILVER...")
-    print("   🚧 (Pendiente de implementar: script step4_silver_process.py)")
+    print("\n [PASO 4/5] Procesando Capa SILVER...")
     try:
          sl.process_silver()
     except Exception as e:
-         print(f"❌ Falló el Paso 4: {e}")
+         print(f"Falló el Paso 4: {e}")
          sys.exit(1)
 
     # ------------------------------------------------------
-    # PASO 5: Agregación Capa Gold (Business KPIs)
+    # PASO 5: Agregación Capa Gold 
     # ------------------------------------------------------
-    print("\n🥇 [PASO 5/5] Calculando KPIs Capa GOLD...")
-    print("   🚧 (Pendiente de implementar: script step5_gold_kpis.py)")
+    print("\n [PASO 5/5] Ejecutando Capa GOLD...")
     try:
          gl.run_gold_layer()
     except Exception as e:
-        print(f"❌ Falló el Paso 5: {e}")
+        print(f" Falló el Paso 5: {e}")
         sys.exit(1)
-
-    # ------------------------------------------------------
-    # FIN
-    # ------------------------------------------------------
-
-    
+        
     print("\n" + "="*50)
-    print(f"🏁 EJECUCIÓN COMPLETADA CON ÉXITO")
+    print(f" EJECUCIÓN COMPLETADA CON ÉXITO")
     print("="*50)
 
 if __name__ == "__main__":
