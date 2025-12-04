@@ -470,7 +470,7 @@ def create_gold_views():
     WHERE user_id != ''
     GROUP BY value_date, user_id, user_name, user_is_premium, user_country
     """)
-    print("   ✅ user_value_estimation - Estimación de valor por usuario")
+    print("   user_value_estimation - Estimación de valor por usuario")
 
     # 4.3 - Tendencias Semanales (Week-over-Week)
     # Compara métricas clave semana a semana
@@ -508,7 +508,7 @@ def create_gold_views():
     FROM silver.enriched_events
     GROUP BY week_start
     """)
-    print("   ✅ weekly_trends - Evolución semanal de KPIs")
+    print("  weekly_trends - Evolución semanal de KPIs")
 
     # =========================================================================
     # FINALIZACIÓN Y VERIFICACIÓN
@@ -516,30 +516,29 @@ def create_gold_views():
     
     duration = time.time() - start_time
     print("\n" + "="*60)
-    print("✅ CAPA GOLD CREADA EXITOSAMENTE")
+    print(" CAPA GOLD CREADA EXITOSAMENTE")
     print("="*60)
-    print(f"⏱️  Tiempo total: {duration:.2f} segundos")
-    print(f"\n📈 Vistas materializadas creadas:")
-    print("\n🔒 SEGURIDAD (3 vistas):")
+    print(f"\n Vistas materializadas creadas:")
+    print("\n SEGURIDAD (3 vistas):")
     print("   • security_daily_summary")
     print("   • top_malicious_ips")
     print("   • user_security_alerts")
-    print("\n⚡ RENDIMIENTO (3 vistas):")
+    print("\n RENDIMIENTO (3 vistas):")
     print("   • endpoint_performance")
     print("   • system_health_hourly")
     print("   • server_errors_analysis")
-    print("\n👥 USUARIOS (3 vistas):")
+    print("\n USUARIOS (3 vistas):")
     print("   • user_segment_analytics")
     print("   • geographic_activity")
     print("   • user_journey_metrics")
-    print("\n📊 BUSINESS INTELLIGENCE (3 vistas):")
+    print("\n BUSINESS INTELLIGENCE (3 vistas):")
     print("   • executive_daily_kpis")
     print("   • user_value_estimation")
     print("   • weekly_trends")
     print("\n" + "="*60)
     
     # Mostrar conteos de cada vista para verificación
-    print("\n🔍 Verificando datos en vistas materializadas...")
+    print("\n Verificando datos en vistas materializadas...")
     views = [
         'security_daily_summary', 'top_malicious_ips', 'user_security_alerts',
         'endpoint_performance', 'system_health_hourly', 'server_errors_analysis',
