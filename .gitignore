@@ -5,4 +5,5 @@ __pycache__/
 # Ignore PDF
 TFModulo_Practica_Final_BBDD_Enunciado.pdf
 
+#hide config data
 config.json
