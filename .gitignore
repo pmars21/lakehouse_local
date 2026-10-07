@@ -4,3 +4,6 @@ __pycache__/
 
 # Ignore PDF
 TFModulo_Practica_Final_BBDD_Enunciado.pdf
+
+#Ignore confg with sensible data
+/.config.json
